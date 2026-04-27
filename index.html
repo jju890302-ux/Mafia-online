@@ -787,8 +787,20 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="end-title" id="endTitle"></div>
   <div class="end-sub" id="endSub"></div>
   <div class="end-players" id="endPlayers"></div>
-  <div style="display:flex;gap:10px;margin-top:8px;">
+  <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+    <button class="btn btn-outline btn-lg" onclick="openGameLog()">📋 게임 로그</button>
     <button class="btn btn-gold btn-lg" onclick="resetAndGoHome()">로비로 돌아가기</button>
+  </div>
+</div>
+
+<!-- MODAL: 게임 로그 -->
+<div class="modal-overlay hidden" id="gameLogModal">
+  <div class="modal" style="max-height:80vh;">
+    <div class="modal-hdr">
+      <span class="modal-title">📋 게임 로그</span>
+      <button class="modal-close" onclick="closeModal('gameLogModal')">✕</button>
+    </div>
+    <div class="modal-body" id="gameLogBody" style="gap:6px;"></div>
   </div>
 </div>
 
@@ -2410,6 +2422,7 @@ function resolveNightActions(players, actions, turn){
   const killed=new Set();
   const publicMsgs=[];
   let vetNoKill=false;
+  let busSwapped=null; // 버스기사 교환으로 실제 사망자가 바뀐 경우
 
   if(vetTarget!=null){ const t=pById(vetTarget); if(t&&t.alive){ if(t.roleId==='GODFATHER'&&!t._inherited) vetNoKill=true; else if(docTarget!==vetTarget) killed.add(vetTarget); } }
   if(vetNoKill) publicMsgs.push("퇴역군인이 누군가를 공격했으나 죽지 않았습니다.");
@@ -2457,16 +2470,44 @@ function resolveNightActions(players, actions, turn){
     else if(parasiteTarget!=null){ const disp=pById(parasiteRaw); if(disp){ const isProstu=parasiteP.roleId==='PROSTITUTE'; pm(parasiteP.id,`${disp.nick}의 능력을 무효화했습니다.`); pm(parasiteTarget,"누군가에게 유혹당해 이번 밤 당신의 능력이 무효화되었습니다."); if(isProstu){ if(gfP&&gfP.id!==parasiteP.id) pm(gfP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); if(mafP&&mafP.id!==parasiteP.id) pm(mafP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); } } }
   }
   if(witchAct&&witchAct.source!=null&&witchAct.target!=null){ const s=pById(witchAct.source),t=pById(witchAct.target); if(s&&t){ pm(witchP.id,`${s.nick}의 능력을 ${t.nick}에게 사용하게 했습니다.`); pm(witchAct.source,"이번 밤 마녀가 당신의 정신을 혼란스럽게 했습니다. 능력이 의도치 않은 대상에게 사용되었을 수 있습니다."); } }
-  // Bus driver
+  // Bus driver — 위치 교환 처리
   const busP=Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
   const busAct=busP?actions[busP.id]:null;
   if(busAct&&busAct.source!=null&&busAct.target!=null&&!nullified.has(busP.id)){
-    const srcId=busAct.source,tgtId=busAct.target;
-    const srcP=ps[srcId],tgtP=ps[tgtId];
-    if(srcP&&tgtP){ pm(busP.id,`${srcP.nick}과(와) ${tgtP.nick}의 위치를 바꾸었습니다.`); pm(srcId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다."); pm(tgtId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다."); }
-    const srcDead=!ps[srcId]?.alive,tgtDead=!ps[tgtId]?.alive;
-    if(srcDead&&!tgtDead){ ps[srcId]={...ps[srcId],alive:true}; ps[tgtId]={...ps[tgtId],alive:false}; if(srcP&&tgtP){ publicMsgs.push(`🌙 ${FN[ROLES[tgtP.roleId]?.faction||'citizen']} 소속 ${tgtP.nick}이(가) 밤에 사망했습니다.`); const idx=publicMsgs.findIndex(m=>m.includes(srcP.nick)&&m.includes('죽었습니다')); if(idx>-1) publicMsgs.splice(idx,1); } }
-    else if(tgtDead&&!srcDead){ ps[tgtId]={...ps[tgtId],alive:true}; ps[srcId]={...ps[srcId],alive:false}; if(srcP&&tgtP){ publicMsgs.push(`🌙 ${FN[ROLES[srcP.roleId]?.faction||'citizen']} 소속 ${srcP.nick}이(가) 밤에 사망했습니다.`); const idx=publicMsgs.findIndex(m=>m.includes(tgtP.nick)&&m.includes('죽었습니다')); if(idx>-1) publicMsgs.splice(idx,1); } }
+    const srcId=busAct.source, tgtId=busAct.target;
+    const srcP=ps[srcId], tgtP=ps[tgtId];
+    if(srcP&&tgtP){
+      pm(busP.id,`${srcP.nick}과(와) ${tgtP.nick}의 위치를 바꾸었습니다.`);
+      pm(srcId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다.");
+      pm(tgtId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다.");
+    }
+    // 교환 전 사망 상태 확인 (killed.forEach 이후 시점)
+    const srcNowDead = !ps[srcId]?.alive;
+    const tgtNowDead = !ps[tgtId]?.alive;
+
+    if(srcNowDead && !tgtNowDead){
+      // A가 죽었는데 B 위치에 있었던 경우 → 실제론 B가 죽어야 함
+      // 1. A 살리기, B 죽이기
+      ps[srcId]={...ps[srcId],alive:true};
+      ps[tgtId]={...ps[tgtId],alive:false};
+      // 2. publicMsgs에서 A(srcP) 사망 메시지 제거
+      for(let i=publicMsgs.length-1;i>=0;i--){
+        if(publicMsgs[i].includes(srcP.nick)&&publicMsgs[i].includes('사망')) publicMsgs.splice(i,1);
+      }
+      // 3. B(tgtP) 사망 메시지 추가 (한 번만)
+      publicMsgs.push(`🌙 ${FN[ROLES[tgtP.roleId]?.faction||'citizen']} 소속 ${tgtP.nick}이(가) 밤에 사망했습니다.`);
+      // 4. announcements도 교정 (killed Set 기반으로 나중에 추가되므로 busSwapped 플래그로 처리)
+      busSwapped = {killed:tgtId, revived:srcId, killedP:tgtP};
+    } else if(tgtNowDead && !srcNowDead){
+      // B가 죽었는데 A 위치에 있었던 경우 → 실제론 A가 죽어야 함
+      ps[tgtId]={...ps[tgtId],alive:true};
+      ps[srcId]={...ps[srcId],alive:false};
+      for(let i=publicMsgs.length-1;i>=0;i--){
+        if(publicMsgs[i].includes(tgtP.nick)&&publicMsgs[i].includes('사망')) publicMsgs.splice(i,1);
+      }
+      publicMsgs.push(`🌙 ${FN[ROLES[srcP.roleId]?.faction||'citizen']} 소속 ${srcP.nick}이(가) 밤에 사망했습니다.`);
+      busSwapped = {killed:srcId, revived:tgtId, killedP:srcP};
+    }
   }
   // Journalist
   const journP=Object.values(ps).find(p=>p.alive&&p.roleId==='JOURNALIST');
@@ -2482,9 +2523,15 @@ function resolveNightActions(players, actions, turn){
   // 구조화된 공지 생성 (renderNightResultPhase에서 UI 카드로 표시)
   const announcements = [];
 
-  // 사망자 공지
-  killed.forEach(id=>{
-    const t = originalPlayers[id]; // 변경 전 원본 필요
+  // 사망자 공지 (버스기사 교환 반영)
+  const finalDeadIds = new Set(killed);
+  if(busSwapped){
+    finalDeadIds.delete(busSwapped.revived); // 실제론 살아있음
+    finalDeadIds.add(busSwapped.killed);     // 실제 사망자
+  }
+  finalDeadIds.forEach(id=>{
+    // 버스기사로 교환된 실제 사망자는 ps 기준으로 확인
+    const t = busSwapped?.killed===id ? busSwapped.killedP : originalPlayers[id];
     if(!t) return;
     if(id===vetTarget){
       announcements.push({type:'death', icon:'🎖️', title:`${t.nick} 사망`, sub:`퇴역군인에게 사살 · ${ROLES[t.roleId]?.name} (${FN[ROLES[t.roleId]?.faction||'citizen']} 소속)`, faction:ROLES[t.roleId]?.faction});
@@ -2633,6 +2680,40 @@ function showEndScreen(result){
     </div>`;
   }).join('');
 }
+
+// 게임 로그 모달
+window.openGameLog = function(){
+  const modal = document.getElementById('gameLogModal');
+  const body  = document.getElementById('gameLogBody');
+  if(!modal||!body) return;
+
+  // chatMsgs에서 시스템 메시지만 필터링해서 로그로 표시
+  const chatEl = document.getElementById('chatMsgs');
+  if(!chatEl||!chatEl.innerHTML){
+    body.innerHTML = '<div style="color:var(--txt3);font-size:0.85rem;text-align:center;">저장된 로그가 없습니다.</div>';
+  } else {
+    // 시스템 채팅 메시지만 추출
+    const msgs = chatEl.querySelectorAll('.chat-msg');
+    let logHtml = '';
+    msgs.forEach(msg=>{
+      const nameEl = msg.querySelector('.chat-msg-name');
+      const textEl = msg.querySelector('.chat-msg-text');
+      if(!nameEl||!textEl) return;
+      const isSystem = nameEl.classList.contains('system-msg');
+      if(isSystem){
+        logHtml += `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);
+          border-radius:8px;padding:8px 12px;font-size:0.8rem;color:var(--gold);line-height:1.5;">
+          ${textEl.innerHTML}</div>`;
+      } else {
+        logHtml += `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
+          border-radius:8px;padding:7px 12px;font-size:0.78rem;line-height:1.5;">
+          <span style="font-size:0.68rem;color:var(--txt3);">${nameEl.innerHTML}&nbsp;</span>${textEl.innerHTML}</div>`;
+      }
+    });
+    body.innerHTML = logHtml || '<div style="color:var(--txt3);font-size:0.85rem;text-align:center;">채팅 로그가 없습니다.</div>';
+  }
+  modal.classList.remove('hidden');
+};
 
 window.resetAndGoHome = function(){
   Object.keys(playerMemos).forEach(k=>delete playerMemos[k]);
