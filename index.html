@@ -962,20 +962,37 @@ let pendingJoinRoomId = null;
 let myReady = false;
 let createPlayerCount = 6;
 
-// Firebase Audio Chat state (WebRTC 대신 Firebase 기반)
+// WebRTC Voice Chat state
 let localStream = null;
-let audioContext = null;
-let audioProcessor = null;
-let audioListeners = {}; // peerId -> unsubscribe fn
-let remoteAudioBuffers = {}; // peerId -> AudioBufferSourceNode
+let peerConnections = {}; // peerId -> RTCPeerConnection
 let isMicOn = false;
-let signalingListener = null; // 호환성 유지용 (미사용)
-let peerConnections = {}; // 호환성 유지용 (미사용)
+let signalingListener = null;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Firebase 기반 음성채팅
-// WebRTC/TURN 없이 Firebase Realtime Database로 오디오 스트리밍
+// WebRTC ICE/TURN 서버 설정
+// Open Relay Project: 무료, 가입 불필요 (https://www.metered.ca/tools/openrelay)
 // ──────────────────────────────────────────────────────────────────────────────
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ]
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 사회자 TTS
@@ -1259,11 +1276,12 @@ async function initLobbyMic(){
   _micInitPending = true;
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio:{ echoCancellation:true, noiseSuppression:true },
+      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true },
       video:false
     });
     isMicOn = true;
     updateMicUI();
+    listenSignaling();
     toast('🎙️ 마이크가 활성화되었습니다','success');
   } catch(e){
     // 권한 거부 시 딱 한 번만 안내
@@ -2678,157 +2696,151 @@ async function sendSystemChat(text){
 // ──────────────────────────────────────────────────────────────────────────────
 // VOICE CHAT (WebRTC + Firebase signaling)
 // ──────────────────────────────────────────────────────────────────────────────
-// ── Firebase 오디오: 마이크 캡처 → Firebase 업로드 ──
-const AUDIO_SAMPLE_RATE = 16000; // 16kHz (음질/대역폭 균형)
-const AUDIO_CHUNK_MS   = 100;    // 100ms 단위로 전송
-const AUDIO_BUFFER_SIZE = Math.floor(AUDIO_SAMPLE_RATE * AUDIO_CHUNK_MS / 1000); // ~1600 samples
-
 async function startVoiceChat(room){
   try {
     if(!localStream){
       localStream = await navigator.mediaDevices.getUserMedia({
-        audio:{ sampleRate:AUDIO_SAMPLE_RATE, channelCount:1, echoCancellation:true, noiseSuppression:true },
+        audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true },
         video:false
       });
       isMicOn = true;
       updateMicUI();
     }
-    startAudioCapture();
-    startAudioListeners(room);
+    // 게임 참가자 전원과 P2P 연결
+    const players = Object.keys(room.players||{}).filter(id=>id!==myId&&!id.startsWith('ai_'));
+    for(const peerId of players) await createPeerConnection(peerId, true);
+    listenSignaling();
   } catch(e){
     toast('마이크 권한이 필요합니다. 음성채팅 없이 진행합니다.','error');
   }
 }
 
-function startAudioCapture(){
-  if(!localStream) return;
-  if(audioContext) audioContext.close();
-  audioContext = new (window.AudioContext||window.webkitAudioContext)({sampleRate:AUDIO_SAMPLE_RATE});
-  const source = audioContext.createMediaStreamSource(localStream);
-  audioProcessor = audioContext.createScriptProcessor(AUDIO_BUFFER_SIZE, 1, 1);
-  let lastSend = 0;
-  audioProcessor.onaudioprocess = (e)=>{
-    if(!isMicOn) return;
-    if(!canSpeakNow()) return;
-    const now = Date.now();
-    if(now - lastSend < AUDIO_CHUNK_MS - 10) return;
-    lastSend = now;
-    const samples = e.inputBuffer.getChannelData(0);
-    // Float32 → Int16 변환으로 데이터 절반 축소
-    const int16 = new Int16Array(samples.length);
-    for(let i=0;i<samples.length;i++) int16[i] = Math.max(-32768, Math.min(32767, samples[i]*32768));
-    // Int16Array → base64
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
-    // Firebase에 업로드 (마지막 값만 덮어씀 — set 사용)
-    set(ref(db,`rooms/${currentRoomId}/audio/${myId}`),{
-      d: b64,
-      t: now,
-      ch: getAudioChannel() // 채널: 'all' | 'mafia'
-    }).catch(()=>{});
-  };
-  source.connect(audioProcessor);
-  audioProcessor.connect(audioContext.destination);
-}
-
-// 현재 음성 채널 결정
-function getAudioChannel(){
-  const phase = gameState?.phase||'day';
-  if(phase==='night') return 'mafia';
-  return 'all';
-}
-
-// 현재 말할 수 있는지 확인
-function canSpeakNow(){
-  const phase = gameState?.phase||'day';
-  const isAlive = myRole?.alive !== false;
-  const isMafiaRole = myRole && MAFIA_IDS.includes(myRole.roleId);
-  if(phase==='night') return isMafiaRole && isAlive;
-  return isAlive;
-}
-
-// 다른 플레이어 오디오 수신
-function startAudioListeners(room){
-  stopAudioListeners();
-  const players = Object.keys(room.players||{}).filter(id=>id!==myId&&!id.startsWith('ai_'));
-  players.forEach(peerId=>{
-    const peerRef = ref(db,`rooms/${currentRoomId}/audio/${peerId}`);
-    const unsub = onValue(peerRef, snap=>{
-      if(!snap.exists()) return;
-      const data = snap.val();
-      if(!data||!data.d) return;
-      // 채널 접근 제어
-      if(!canHearPeer(peerId, data.ch)) return;
-      // 오래된 패킷 무시 (500ms 이상)
-      if(Date.now() - (data.t||0) > 500) return;
-      playAudioChunk(peerId, data.d);
-    });
-    audioListeners[peerId] = unsub;
-  });
-}
-
-function stopAudioListeners(){
-  Object.values(audioListeners).forEach(unsub=>{ try{ unsub(); }catch(e){} });
-  audioListeners = {};
-}
-
-// 특정 피어의 오디오를 들을 수 있는지
-function canHearPeer(peerId, channel){
-  const phase = gameState?.phase||'day';
-  const isAlive = myRole?.alive !== false;
-  const isMafiaMe = myRole && MAFIA_IDS.includes(myRole.roleId);
-  const peerPlayer = gameState?.players?.[peerId];
-  const peerIsMafia = peerPlayer && MAFIA_IDS.includes(peerPlayer.roleId);
-  const peerAlive = peerPlayer?.alive !== false;
-
-  if(phase==='night'){
-    // 밤: 마피아끼리만 통신
-    if(channel==='mafia') return isMafiaMe && peerIsMafia && isAlive && peerAlive;
-    return false;
-  }
-  // 낮: 생존자 전원
-  return true;
-}
-
-// base64 오디오 청크 재생
-function playAudioChunk(peerId, b64){
-  if(!audioContext) return;
-  try {
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-    const int16 = new Int16Array(bytes.buffer);
-    const float32 = new Float32Array(int16.length);
-    for(let i=0;i<int16.length;i++) float32[i]=int16[i]/32768;
-    const buffer = audioContext.createBuffer(1, float32.length, AUDIO_SAMPLE_RATE);
-    buffer.getChannelData(0).set(float32);
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start();
-  } catch(e){}
-}
-
 function stopVoiceChat(){
-  if(audioProcessor){ audioProcessor.disconnect(); audioProcessor=null; }
-  if(audioContext){ audioContext.close(); audioContext=null; }
-  stopAudioListeners();
   if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
-  // Firebase 오디오 노드 정리
-  if(currentRoomId) set(ref(db,`rooms/${currentRoomId}/audio/${myId}`),null).catch(()=>{});
+  Object.values(peerConnections).forEach(pc=>{ try{ pc.close(); }catch(e){} });
+  peerConnections={};
+  if(signalingListener&&currentRoomId){
+    off(ref(db,`rooms/${currentRoomId}/signaling`),'value',signalingListener);
+    signalingListener=null;
+  }
   isMicOn=false;
   updateMicUI();
 }
 
+async function createPeerConnection(peerId, isInitiator){
+  if(peerConnections[peerId]) return;
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+  peerConnections[peerId] = pc;
+
+  // 로컬 스트림 추가
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+
+  // 원격 오디오 재생
+  pc.ontrack = e=>{
+    let audio = document.getElementById(`audio-${peerId}`);
+    if(!audio){
+      audio = document.createElement('audio');
+      audio.id = `audio-${peerId}`;
+      audio.autoplay = true;
+      audio.playsInline = true;
+      document.body.appendChild(audio);
+    }
+    if(audio.srcObject !== e.streams[0]) audio.srcObject = e.streams[0];
+  };
+
+  // ICE candidate → Firebase 시그널링
+  pc.onicecandidate = e=>{
+    if(e.candidate){
+      push(ref(db,`rooms/${currentRoomId}/signaling`), {
+        from:myId, to:peerId, type:'candidate',
+        candidate:JSON.stringify(e.candidate), ts:Date.now()
+      });
+    }
+  };
+
+  // 연결 상태 모니터링 — 실패 시 재연결
+  pc.oniceconnectionstatechange = ()=>{
+    if(pc.iceConnectionState==='failed'){
+      pc.restartIce();
+    }
+    if(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='closed'){
+      delete peerConnections[peerId];
+    }
+  };
+
+  if(isInitiator){
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    push(ref(db,`rooms/${currentRoomId}/signaling`), {
+      from:myId, to:peerId, type:'offer',
+      sdp:offer.sdp, ts:Date.now()
+    });
+  }
+}
+
+function listenSignaling(){
+  if(signalingListener) return;
+  const sigRef = ref(db,`rooms/${currentRoomId}/signaling`);
+  signalingListener = onValue(sigRef, async snap=>{
+    if(!snap.exists()) return;
+    const entries = Object.entries(snap.val());
+    for(const [key, sig] of entries){
+      if(sig.to !== myId || sig.processed) continue;
+      // 처리됨 표시
+      update(ref(db,`rooms/${currentRoomId}/signaling/${key}`),{processed:true});
+      const from = sig.from;
+      try {
+        if(sig.type==='offer'){
+          if(!peerConnections[from]) await createPeerConnection(from, false);
+          const pc = peerConnections[from];
+          if(pc.signalingState !== 'stable'){
+            await pc.setRemoteDescription({type:'offer', sdp:sig.sdp});
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            push(ref(db,`rooms/${currentRoomId}/signaling`), {
+              from:myId, to:from, type:'answer',
+              sdp:answer.sdp, ts:Date.now()
+            });
+          }
+        } else if(sig.type==='answer'){
+          const pc = peerConnections[from];
+          if(pc && pc.signalingState === 'have-local-offer'){
+            await pc.setRemoteDescription({type:'answer', sdp:sig.sdp});
+          }
+        } else if(sig.type==='candidate'){
+          const pc = peerConnections[from];
+          if(pc && pc.remoteDescription){
+            try{ await pc.addIceCandidate(JSON.parse(sig.candidate)); }catch(e){}
+          }
+        }
+      } catch(e){ console.warn('Signaling error:', e); }
+    }
+  });
+}
+
 function updateVoiceChannelAccess(){
-  // Firebase 오디오는 canSpeakNow()/canHearPeer()로 실시간 체크하므로
-  // 여기서는 UI 업데이트와 로컬 마이크 트랙 enable/disable만 처리
+  if(!localStream) return;
   const phase=gameState?.phase||'waiting';
   const isAlive=myRole?myRole.alive:true;
   const isMafiaRole=myRole&&MAFIA_IDS.includes(myRole.roleId);
-  if(localStream){
-    const canSpeak = phase==='night' ? (isMafiaRole&&isAlive) : isAlive;
-    localStream.getAudioTracks().forEach(t=>{ t.enabled=canSpeak&&isMicOn; });
-  }
+
+  // 원격 오디오 mute/unmute
+  Object.keys(peerConnections).forEach(peerId=>{
+    const audio = document.getElementById(`audio-${peerId}`);
+    if(!audio) return;
+    const peerPlayer = gameState?.players?.[peerId];
+    const peerIsMafia = peerPlayer && MAFIA_IDS.includes(peerPlayer.roleId);
+    const peerAlive = peerPlayer?.alive !== false;
+    let canHear = true;
+    if(phase==='night'){
+      canHear = isMafiaRole && isAlive && peerIsMafia && peerAlive;
+    }
+    audio.muted = !canHear;
+  });
+
+  // 로컬 마이크 enable/disable
+  const canSpeak = phase==='night' ? (isMafiaRole&&isAlive) : isAlive;
+  localStream.getAudioTracks().forEach(t=>{ t.enabled=canSpeak&&isMicOn; });
   const voiceLabel=document.getElementById('voiceLabel');
   const voiceDot=document.getElementById('voiceDot');
   if(phase==='night'&&isMafiaRole&&isAlive){
@@ -2846,8 +2858,7 @@ function updateVoiceChannelAccess(){
   }
 }
 
-// createPeerConnection, listenSignaling 제거됨 (Firebase 오디오 방식 사용)
-function listenSignaling(){ /* Firebase 오디오 방식에서는 미사용 */ }
+
 
 window.toggleMic = async function(){
   if(!localStream){
