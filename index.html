@@ -924,13 +924,13 @@ const ROLES = {
 };
 const ROLE_DESC = {
   GODFATHER:"매 밤 1명을 제거합니다.\n기생 선택 시 창부로 영입합니다.",
-  MAFIA:"매 밤 1명의 직업을 알 수 있습니다.\n(8인 전용)",
+  MAFIA:"매 밤 1명의 직업을 알 수 있습니다.\n(대부 추방 시 대부능력 승계)",
   PROSTITUTE:"매 밤 1명의 능력을 무효화합니다.\n(마피아 소속)",
   POLICE:"매 밤 1명을 조사합니다.\n마피아 소속 여부만 확인 가능합니다.",
   DOCTOR:"매 밤 1명(자신 포함)을 살립니다.",
   HUNTER:"매 밤 1명이 누구에게 능력을\n사용했는지 추적합니다.",
-  PARASITE:"매 밤 1명의 능력을 무효화합니다.",
-  VETERAN:"2번째 밤에만 1명을 사살합니다.\n대부는 불가.",
+  PARASITE:"매 밤 1명의 능력을 무효화합니다.\n(마녀는 무효화 불가)",
+  VETERAN:"2번째 밤에만 1명을 사살합니다.\n(대부는 사살 불가)",
   WITCH:"매 밤 A의 능력을 B에게 사용하게 만듭니다.\n승리: 마피아·시민·중립 각 1명만 생존 시",
   JOURNALIST:"단 1번, 선택한 플레이어의 직업을 모두에게 공개합니다.\n(대부 선택 시 보도 중지)",
   BUSDRIVER:"매 밤 두 플레이어를 선택해 서로의 위치를 바꿉니다.",
@@ -1938,7 +1938,11 @@ function renderNightPhase(area){
   const isMafia = MAFIA_IDS2.includes(p.roleId);
   const alive = Object.values(gameState.players).filter(q=>q.alive);
   const canSelf = p.roleId==='DOCTOR';
-  const targets = canSelf?alive:alive.filter(q=>q.id!==myId);
+  // 버스기사 2단계: A(witchSrc)를 제외한 나머지만 선택 가능
+  const targets = canSelf ? alive
+    : (p.roleId==='BUSDRIVER' && witchStep===2)
+      ? alive.filter(q=>q.id!==myId && q.id!==witchSrc)
+      : alive.filter(q=>q.id!==myId);
   const instrMap = {
     GODFATHER:"제거할 플레이어를 선택하세요\n(기생 선택 시 창부로 영입)",
     MAFIA:p.roleId&&p._inherited?"대부 능력 승계\n제거할 플레이어를 선택하세요":"직업을 조사할 플레이어를 선택하세요",
@@ -1950,7 +1954,7 @@ function renderNightPhase(area){
     VETERAN:gameState.turn===2?"사살할 플레이어를 선택하세요\n(대부 선택 시 공격 실패)":"이번 밤은 대기 상태 (2번째 밤에만 발동)",
     WITCH:"능력을 빌릴 플레이어(A)를 선택하세요",
     JOURNALIST:"직업을 전체 공개할 플레이어를 선택하세요\n(단 1회 사용 가능)",
-    BUSDRIVER:"위치를 바꿀 첫 번째 플레이어(A)를 선택하세요",
+    BUSDRIVER:witchStep===1?"위치를 바꿀 첫 번째 플레이어(A)를 선택하세요":`두 번째 플레이어(B)를 선택하세요\n(A: ${esc(Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'')}`,
   };
   let mafiaTeamHtml='';
   if(isMafia){
@@ -1985,9 +1989,14 @@ window.selectNightTarget = function(id){
   if(p.roleId==='WITCH'||p.roleId==='BUSDRIVER'){
     if(witchStep===1){
       witchSrc=id; witchStep=2;
-      renderNightPhase(document.getElementById('phaseArea'));
+      renderNightPhase(document.getElementById('phaseArea')); // 목록 재렌더 (A 제외)
       return;
     } else {
+      // 버스기사: A와 동일 선택 방지
+      if(p.roleId==='BUSDRIVER' && id===witchSrc){
+        toast('첫 번째로 선택한 플레이어와 다른 플레이어를 선택하세요','error');
+        return;
+      }
       selectedTarget=id;
     }
   } else {
@@ -2371,10 +2380,40 @@ function resolveNightActions(players, actions, turn){
   const witchP=Object.values(ps).find(p=>p.alive&&p.roleId==='WITCH');
   const witchAct=witchP?actions[witchP.id]:null;
   const redirect={};
-  if(witchAct&&witchAct.source!=null&&witchAct.target!=null) redirect[witchAct.source]=witchAct.target;
+  let witchBlockedByBus = false; // 마녀가 버스기사를 조정하려 했으나 거부됨
+  if(witchAct&&witchAct.source!=null&&witchAct.target!=null){
+    const witchSrcP = ps[witchAct.source];
+    const witchTgtP = ps[witchAct.target];
+    // 버스기사가 source(조종당할 플레이어)이면 거부
+    if(witchSrcP&&witchSrcP.roleId==='BUSDRIVER'){
+      witchBlockedByBus = true;
+      // 마녀에게 개인 알림 (resolveNightActions 후반에 처리)
+    } else {
+      redirect[witchAct.source]=witchAct.target;
+    }
+  }
   // 'skip' sentinel → null로 변환
   Object.keys(actions).forEach(k=>{ if(actions[k]==='skip') actions[k]=null; });
-  const eff=(aid,raw)=>redirect[aid]!==undefined?redirect[aid]:raw;
+
+  // 버스기사 교환 redirect 사전 구성
+  // 버스기사가 A↔B 교환 → 다른 플레이어가 A를 타깃하면 B로, B를 타깃하면 A로 리다이렉트
+  const busP0 = Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
+  const busAct0 = busP0 ? actions[busP0.id] : null;
+  const busRedirect = {}; // {originalTarget -> actualTarget}
+  if(busAct0&&busAct0.source!=null&&busAct0.target!=null){
+    busRedirect[busAct0.source] = busAct0.target;
+    busRedirect[busAct0.target] = busAct0.source;
+  }
+
+  // eff: 마녀 redirect 먼저, 그 다음 버스기사 redirect
+  // 단, 버스기사 자신의 액션에는 bus redirect 미적용 (자기 자신 제외)
+  const eff=(aid,raw)=>{
+    if(raw==null) return raw;
+    const afterWitch = redirect[aid]!==undefined ? redirect[aid] : raw;
+    // 버스기사 redirect (능력 사용자가 버스기사 본인이 아닐 때만)
+    if(aid!==busP0?.id && busRedirect[afterWitch]!==undefined) return busRedirect[afterWitch];
+    return afterWitch;
+  };
 
   const parasiteP=Object.values(ps).find(p=>p.alive&&(p.roleId==='PARASITE'||p.roleId==='PROSTITUTE'));
   const parasiteRaw=parasiteP?actions[parasiteP.id]:null;
@@ -2449,11 +2488,11 @@ function resolveNightActions(players, actions, turn){
     const t=pById(id);
     if(t){
       ps[id]={...ps[id],alive:false};
-      if(id===vetTarget){
-        // 퇴역군인이 죽인 경우: 직업 공개 (규칙상 허용)
+      // 퇴역군인 사살: 원래 vetTarget이었거나 busRedirect로 교환된 경우
+      const isVetKill = (id===vetTarget);
+      if(isVetKill){
         publicMsgs.push(`🎖️ 퇴역군인이 ${t.nick}을(를) 사살했습니다. 직업: [${ROLES[t.roleId]?.name}]`);
       } else {
-        // 그 외: 소속만 공개, 직업 비공개
         publicMsgs.push(`🌙 ${FN[ROLES[t.roleId]?.faction||'citizen']} 소속 ${t.nick}이(가) 밤에 사망했습니다.`);
       }
     }
@@ -2469,44 +2508,26 @@ function resolveNightActions(players, actions, turn){
     if(targetP&&targetP.roleId==='WITCH'){ pm(parasiteP.id,`${targetP.nick}을(를) 유혹하려 했으나 실패하였습니다.`); pm(rawTarget,"기생이 유혹하려했으나 실패하였습니다."); }
     else if(parasiteTarget!=null){ const disp=pById(parasiteRaw); if(disp){ const isProstu=parasiteP.roleId==='PROSTITUTE'; pm(parasiteP.id,`${disp.nick}의 능력을 무효화했습니다.`); pm(parasiteTarget,"누군가에게 유혹당해 이번 밤 당신의 능력이 무효화되었습니다."); if(isProstu){ if(gfP&&gfP.id!==parasiteP.id) pm(gfP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); if(mafP&&mafP.id!==parasiteP.id) pm(mafP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); } } }
   }
-  if(witchAct&&witchAct.source!=null&&witchAct.target!=null){ const s=pById(witchAct.source),t=pById(witchAct.target); if(s&&t){ pm(witchP.id,`${s.nick}의 능력을 ${t.nick}에게 사용하게 했습니다.`); pm(witchAct.source,"이번 밤 마녀가 당신의 정신을 혼란스럽게 했습니다. 능력이 의도치 않은 대상에게 사용되었을 수 있습니다."); } }
-  // Bus driver — 위치 교환 처리
-  const busP=Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
-  const busAct=busP?actions[busP.id]:null;
-  if(busAct&&busAct.source!=null&&busAct.target!=null&&!nullified.has(busP.id)){
-    const srcId=busAct.source, tgtId=busAct.target;
+  if(witchAct&&witchAct.source!=null&&witchAct.target!=null){
+    if(witchBlockedByBus){
+      // 버스기사가 마녀의 조종을 거부
+      pm(witchP.id,`버스기사 [${pById(witchAct.source)?.nick}]가 탑승을 거부했습니다. 능력이 적용되지 않았습니다.`);
+    } else {
+      const s=pById(witchAct.source),t=pById(witchAct.target);
+      if(s&&t){
+        pm(witchP.id,`${s.nick}의 능력을 ${t.nick}에게 사용하게 했습니다.`);
+        pm(witchAct.source,"이번 밤 마녀가 당신의 정신을 혼란스럽게 했습니다. 능력이 의도치 않은 대상에게 사용되었을 수 있습니다.");
+      }
+    }
+  }
+  // Bus driver — 개인 알림 처리 (타깃 교환은 eff 함수에서 이미 처리됨)
+  if(busP0&&busAct0&&busAct0.source!=null&&busAct0.target!=null&&!nullified.has(busP0.id)){
+    const srcId=busAct0.source, tgtId=busAct0.target;
     const srcP=ps[srcId], tgtP=ps[tgtId];
     if(srcP&&tgtP){
-      pm(busP.id,`${srcP.nick}과(와) ${tgtP.nick}의 위치를 바꾸었습니다.`);
-      pm(srcId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다.");
-      pm(tgtId,"버스기사가 당신을 찾아왔습니다. 위치가 바뀌었습니다.");
-    }
-    // 교환 전 사망 상태 확인 (killed.forEach 이후 시점)
-    const srcNowDead = !ps[srcId]?.alive;
-    const tgtNowDead = !ps[tgtId]?.alive;
-
-    if(srcNowDead && !tgtNowDead){
-      // A가 죽었는데 B 위치에 있었던 경우 → 실제론 B가 죽어야 함
-      // 1. A 살리기, B 죽이기
-      ps[srcId]={...ps[srcId],alive:true};
-      ps[tgtId]={...ps[tgtId],alive:false};
-      // 2. publicMsgs에서 A(srcP) 사망 메시지 제거
-      for(let i=publicMsgs.length-1;i>=0;i--){
-        if(publicMsgs[i].includes(srcP.nick)&&publicMsgs[i].includes('사망')) publicMsgs.splice(i,1);
-      }
-      // 3. B(tgtP) 사망 메시지 추가 (한 번만)
-      publicMsgs.push(`🌙 ${FN[ROLES[tgtP.roleId]?.faction||'citizen']} 소속 ${tgtP.nick}이(가) 밤에 사망했습니다.`);
-      // 4. announcements도 교정 (killed Set 기반으로 나중에 추가되므로 busSwapped 플래그로 처리)
-      busSwapped = {killed:tgtId, revived:srcId, killedP:tgtP};
-    } else if(tgtNowDead && !srcNowDead){
-      // B가 죽었는데 A 위치에 있었던 경우 → 실제론 A가 죽어야 함
-      ps[tgtId]={...ps[tgtId],alive:true};
-      ps[srcId]={...ps[srcId],alive:false};
-      for(let i=publicMsgs.length-1;i>=0;i--){
-        if(publicMsgs[i].includes(tgtP.nick)&&publicMsgs[i].includes('사망')) publicMsgs.splice(i,1);
-      }
-      publicMsgs.push(`🌙 ${FN[ROLES[srcP.roleId]?.faction||'citizen']} 소속 ${srcP.nick}이(가) 밤에 사망했습니다.`);
-      busSwapped = {killed:srcId, revived:tgtId, killedP:srcP};
+      pm(busP0.id,`${srcP.nick}과(와) ${tgtP.nick}의 위치를 바꾸었습니다.`);
+      pm(srcId,"버스기사가 당신을 찾아왔습니다. 이번 밤 당신의 위치가 바뀌었습니다.");
+      pm(tgtId,"버스기사가 당신을 찾아왔습니다. 이번 밤 당신의 위치가 바뀌었습니다.");
     }
   }
   // Journalist
@@ -2523,20 +2544,13 @@ function resolveNightActions(players, actions, turn){
   // 구조화된 공지 생성 (renderNightResultPhase에서 UI 카드로 표시)
   const announcements = [];
 
-  // 사망자 공지 (버스기사 교환 반영)
-  const finalDeadIds = new Set(killed);
-  if(busSwapped){
-    finalDeadIds.delete(busSwapped.revived); // 실제론 살아있음
-    finalDeadIds.add(busSwapped.killed);     // 실제 사망자
-  }
-  finalDeadIds.forEach(id=>{
-    // 버스기사로 교환된 실제 사망자는 ps 기준으로 확인
-    const t = busSwapped?.killed===id ? busSwapped.killedP : originalPlayers[id];
-    if(!t) return;
-    if(id===vetTarget){
-      announcements.push({type:'death', icon:'🎖️', title:`${t.nick} 사망`, sub:`퇴역군인에게 사살 · ${ROLES[t.roleId]?.name} (${FN[ROLES[t.roleId]?.faction||'citizen']} 소속)`, faction:ROLES[t.roleId]?.faction});
+  // 사망자 공지 — ps에서 alive:false인 플레이어를 기준으로 표시 (eff로 이미 올바르게 계산됨)
+  Object.values(ps).filter(p=>!p.alive&&originalPlayers[p.id]?.alive).forEach(p=>{
+    const wasVetKill = p.id===vetTarget || (busRedirect[vetTarget]===p.id);
+    if(wasVetKill){
+      announcements.push({type:'death', icon:'🎖️', title:`${p.nick} 사망`, sub:`퇴역군인에게 사살 · ${ROLES[p.roleId]?.name} (${FN[ROLES[p.roleId]?.faction||'citizen']} 소속)`, faction:ROLES[p.roleId]?.faction});
     } else {
-      announcements.push({type:'death', icon:'💀', title:`${t.nick} 사망`, sub:`${FN[ROLES[t.roleId]?.faction||'citizen']} 소속`, faction:ROLES[t.roleId]?.faction});
+      announcements.push({type:'death', icon:'💀', title:`${p.nick} 사망`, sub:`${FN[ROLES[p.roleId]?.faction||'citizen']} 소속`, faction:ROLES[p.roleId]?.faction});
     }
   });
 
