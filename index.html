@@ -2197,11 +2197,14 @@ async function setPhase(phase, durationSec){
   if(phase==='vote'){updates.votes={};}
   if(phase==='night'){
     const players = Object.values(gameState.players);
+    const currentTurnForQueue = gameState.turn||1;
     const queue = players.filter(p=>{
       if(!p.alive) return false;
       const id=p.roleId;
       if(id==='MAFIA'&&Object.keys(gameState.players).length<8) return false;
       if(id==='JOURNALIST'&&p.journalistUsed) return false;
+      // 퇴역군인은 2번째 밤에만 큐에 포함 (다른 밤엔 행동 없음)
+      if(id==='VETERAN'&&currentTurnForQueue!==2) return false;
       return ["GODFATHER","POLICE","DOCTOR","HUNTER","PARASITE","VETERAN","WITCH","MAFIA","JOURNALIST","BUSDRIVER","PROSTITUTE"].includes(id);
     }).map(p=>p.id);
     updates.nightQueue=queue;
@@ -2502,7 +2505,7 @@ function resolveNightActions(players, actions, turn){
   };
 
   const parasiteP=Object.values(ps).find(p=>p.alive&&(p.roleId==='PARASITE'||p.roleId==='PROSTITUTE'));
-  const parasiteRaw=parasiteP?actions[parasiteP.id]:null;
+  const parasiteRaw=(parasiteP&&actions[parasiteP.id]&&actions[parasiteP.id]!=='skip')?actions[parasiteP.id]:null;
   const nullified=new Set();
   let parasiteTarget=null;
   if(parasiteRaw!=null){
@@ -2513,27 +2516,28 @@ function resolveNightActions(players, actions, turn){
   }
 
   const gfP=Object.values(ps).find(p=>p.alive&&(p.roleId==='GODFATHER'||(p.roleId==='MAFIA'&&p._inherited)));
-  const gfRaw=gfP?actions[gfP.id]:null;
+  const gfRaw=(gfP&&actions[gfP.id]&&actions[gfP.id]!=='skip')?actions[gfP.id]:null;
   const gfTarget=(gfRaw!=null&&!nullified.has(gfP?.id))?eff(gfP.id,gfRaw):null;
 
   const docP=Object.values(ps).find(p=>p.alive&&p.roleId==='DOCTOR');
-  const docRaw=docP?actions[docP.id]:null;
+  const docRaw=(docP&&actions[docP.id]&&actions[docP.id]!=='skip')?actions[docP.id]:null;
   const docTarget=(docRaw!=null&&!nullified.has(docP?.id))?eff(docP.id,docRaw):null;
 
   const vetP=Object.values(ps).find(p=>p.alive&&p.roleId==='VETERAN');
-  const vetRaw=(vetP&&turn===2)?actions[vetP.id]:null;
+  // 퇴역군인은 반드시 turn===2이고, skip이 아닌 경우에만 적용
+  const vetRaw=(vetP&&turn===2&&actions[vetP.id]&&actions[vetP.id]!=='skip')?actions[vetP.id]:null;
   const vetTarget=(vetRaw!=null&&!nullified.has(vetP?.id))?eff(vetP.id,vetRaw):null;
 
   const polP=Object.values(ps).find(p=>p.alive&&p.roleId==='POLICE');
-  const polRaw=polP?actions[polP.id]:null;
+  const polRaw=(polP&&actions[polP.id]&&actions[polP.id]!=='skip')?actions[polP.id]:null;
   const polTarget=(polRaw!=null&&!nullified.has(polP?.id))?eff(polP.id,polRaw):null;
 
   const hunP=Object.values(ps).find(p=>p.alive&&p.roleId==='HUNTER');
-  const hunRaw=hunP?actions[hunP.id]:null;
+  const hunRaw=(hunP&&actions[hunP.id]&&actions[hunP.id]!=='skip')?actions[hunP.id]:null;
   const hunTarget=(hunRaw!=null&&!nullified.has(hunP?.id))?eff(hunP.id,hunRaw):null;
 
   const mafP=Object.values(ps).find(p=>p.alive&&p.roleId==='MAFIA'&&!p._inherited);
-  const mafRaw=mafP?actions[mafP.id]:null;
+  const mafRaw=(mafP&&actions[mafP.id]&&actions[mafP.id]!=='skip')?actions[mafP.id]:null;
   const mafTarget=(mafRaw!=null&&!nullified.has(mafP?.id))?eff(mafP.id,mafRaw):null;
 
   const abilityUsed={};
@@ -2724,10 +2728,13 @@ function cpuPickTargetForAI(aiP, players, currentTurn){
     return {source:a.id, target:b.id};
   }
   if(roleId==='VETERAN'){
-    // 퇴역군인은 2번째 밤에만 행동 (currentTurn 기준)
+    // 퇴역군인은 정확히 2번째 밤에만 행동
     if((currentTurn||1) !== 2) return 'skip';
-    const mafia=alive.filter(p=>MAFIA_IDS.includes(p.roleId));
-    const t=mafia.length?mafia[Math.floor(Math.random()*mafia.length)]:alive[Math.floor(Math.random()*alive.length)];
+    // 대부는 타깃 불가
+    const nonGf=alive.filter(p=>p.roleId!=='GODFATHER'&&!p._inherited);
+    const mafia=nonGf.filter(p=>MAFIA_IDS.includes(p.roleId));
+    const t=mafia.length?mafia[Math.floor(Math.random()*mafia.length)]:nonGf[Math.floor(Math.random()*nonGf.length)];
+    if(!t) return 'skip';
     return t.id;
   }
   const t=alive[Math.floor(Math.random()*alive.length)]; return t.id;
