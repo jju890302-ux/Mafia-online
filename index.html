@@ -2110,9 +2110,8 @@ async function checkNightQueue(){
 
   const allDone = queue.every(id => actions[id] !== undefined);
   if(allDone){
-    // phase가 아직 night인지 재확인 후 실행
-    const currentPhaseSnap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
-    if(currentPhaseSnap.val() === 'night') await doResolveNight();
+    const snap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
+    if(snap.val()==='night') await doResolveNight();
   }
 }
 
@@ -2131,8 +2130,6 @@ async function advancePhase(){
   else if(phase==='vote')        await resolveVoteAsHost();
   else if(phase==='voteResult')  await startNightPhase();   // 5초 딜레이 후 밤 시작
   else if(phase==='night'){
-    // 타이머 만료 시 checkNightQueue 경유 (AI 미행동 강제 처리)
-    // doResolveNight 내부에 중복 방지 가드 있음
     await checkNightQueue();
   }
   else if(phase==='nightResult') await hostStartNextDayInternal();
@@ -2272,26 +2269,20 @@ async function startNightPhase(){
   await setPhase('night', 30); // 밤 30초
 }
 
-let _resolveNightRunning = false; // 중복 실행 방지
+let _resolveNightRunning = false;
 
 async function doResolveNight(){
   if(!isHost||!gameState) return;
-  if(_resolveNightRunning) return; // 이미 실행 중이면 무시
+  if(_resolveNightRunning){ console.log('doResolveNight: already running, skip'); return; }
   _resolveNightRunning = true;
-
-  // Firebase에서 현재 phase 재확인 — night가 아니면 무시
+  // Firebase phase 재확인
   try {
     const phaseSnap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
-    if(phaseSnap.val() !== 'night'){ _resolveNightRunning = false; return; }
-  } catch(e){ _resolveNightRunning = false; return; }
-
-  // nightActions를 Firebase에서 직접 읽어서 최신 상태 보장
-  let freshActions = {};
-  try {
-    const actSnap = await get(ref(db,`rooms/${currentRoomId}/gameState/nightActions`));
-    freshActions = actSnap.val()||{};
-  } catch(e){}
-
+    if(phaseSnap.val() !== 'night'){ _resolveNightRunning=false; return; }
+  } catch(e){ _resolveNightRunning=false; return; }
+  // 최신 nightActions를 Firebase에서 직접 읽기
+  let freshActions={};
+  try { const s=await get(ref(db,`rooms/${currentRoomId}/gameState/nightActions`)); freshActions=s.val()||{}; } catch(e){}
   const result=resolveNightActions(gameState.players, freshActions, gameState.turn||1);
 
   // 공개 메시지를 채팅으로도 보내고, gameState.publicAnnouncements에도 저장
@@ -2311,10 +2302,9 @@ async function doResolveNight(){
     'gameState/phaseStartTime':Date.now(),
     'gameState/phaseEndTime':Date.now()+15000,
     'gameState/publicAnnouncements':result.announcements,
-    'gameState/pendingWin':win||null,
+    'gameState/pendingWin':win||null, // 승리 결과 임시 저장
     ...pmUpdates
   });
-  _resolveNightRunning = false;
 }
 
 // 투표 결과 TTS
@@ -2470,58 +2460,53 @@ window.hostStartNextDay = async function(){
 // ──────────────────────────────────────────────────────────────────────────────
 // NIGHT RESOLUTION LOGIC (identical to offline version)
 // ──────────────────────────────────────────────────────────────────────────────
-function resolveNightActions(players, actions, turn){
+function resolveNightActions(players, actionsRaw, turn){
   let ps={}; Object.entries(players).forEach(([id,p])=>ps[id]={...p});
-  const originalPlayers={}; Object.entries(players).forEach(([id,p])=>originalPlayers[id]={...p}); // 변경 전 스냅샷
+  const originalPlayers={}; Object.entries(players).forEach(([id,p])=>originalPlayers[id]={...p});
   const pById=id=>ps[id];
   const privateMsgs={};
   const pm=(id,msg)=>{ if(!privateMsgs[id]) privateMsgs[id]=[]; privateMsgs[id].push(msg); };
 
-  // 'skip' sentinel → null로 변환 (모든 능력 추출 전에 먼저 처리)
-  Object.keys(actions).forEach(k=>{ if(actions[k]==='skip') actions[k]=null; });
+  // ── STEP 0: actions를 깊은 복사 후 'skip' sentinel 즉시 null로 변환 ──
+  const actions = {};
+  Object.entries(actionsRaw).forEach(([k,v])=>{ actions[k] = (v==='skip') ? null : v; });
 
+  // ── STEP 1: 마녀 redirect 구성 (skip 변환 이후) ──
   const witchP=Object.values(ps).find(p=>p.alive&&p.roleId==='WITCH');
   const witchActRaw = witchP ? actions[witchP.id] : null;
-  // witchAct가 {source, target} 형태인지 확인 (문자열 skip이나 null 제외)
-  const witchAct = (witchActRaw && typeof witchActRaw === 'object' && witchActRaw.source!=null && witchActRaw.target!=null)
+  // 반드시 {source, target} 객체인지 검증
+  const witchAct = (witchActRaw && typeof witchActRaw==='object' && witchActRaw.source!=null && witchActRaw.target!=null)
     ? witchActRaw : null;
   const redirect={};
-  let witchBlockedByBus = false;
+  let witchBlockedByBus=false;
   if(witchAct){
-    const witchSrcP = ps[witchAct.source];
-    // 버스기사가 source이면 거부
-    if(witchSrcP&&witchSrcP.roleId==='BUSDRIVER'){
-      witchBlockedByBus = true;
-    } else {
-      redirect[witchAct.source]=witchAct.target;
-    }
+    const witchSrcP=ps[witchAct.source];
+    if(witchSrcP&&witchSrcP.roleId==='BUSDRIVER') witchBlockedByBus=true;
+    else redirect[witchAct.source]=witchAct.target;
   }
 
-  // 버스기사 교환 redirect 사전 구성
-  // 버스기사가 A↔B 교환 → 다른 플레이어가 A를 타깃하면 B로, B를 타깃하면 A로 리다이렉트
-  const busP0 = Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
+  // ── STEP 2: 버스기사 redirect 구성 ──
+  const busP0=Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
   const busActRaw0 = busP0 ? actions[busP0.id] : null;
-  // busAct0가 반드시 {source, target} 객체인지 확인 (skip/null/string 제외)
-  const busAct0 = (busActRaw0 && typeof busActRaw0 === 'object' && busActRaw0.source!=null && busActRaw0.target!=null)
+  const busAct0 = (busActRaw0 && typeof busActRaw0==='object' && busActRaw0.source!=null && busActRaw0.target!=null)
     ? busActRaw0 : null;
-  const busRedirect = {};
+  const busRedirect={};
   if(busAct0){
-    busRedirect[busAct0.source] = busAct0.target;
-    busRedirect[busAct0.target] = busAct0.source;
+    busRedirect[busAct0.source]=busAct0.target;
+    busRedirect[busAct0.target]=busAct0.source;
   }
 
-  // eff: 마녀 redirect 먼저, 그 다음 버스기사 redirect
-  // 단, 버스기사 자신의 액션에는 bus redirect 미적용 (자기 자신 제외)
+  // ── STEP 3: eff 함수 ──
   const eff=(aid,raw)=>{
     if(raw==null) return raw;
     const afterWitch = redirect[aid]!==undefined ? redirect[aid] : raw;
-    // 버스기사 redirect (능력 사용자가 버스기사 본인이 아닐 때만)
     if(aid!==busP0?.id && busRedirect[afterWitch]!==undefined) return busRedirect[afterWitch];
     return afterWitch;
   };
 
+  // ── STEP 4: 기생/창부 nullified 계산 ──
   const parasiteP=Object.values(ps).find(p=>p.alive&&(p.roleId==='PARASITE'||p.roleId==='PROSTITUTE'));
-  const parasiteRaw=(parasiteP&&actions[parasiteP.id]&&actions[parasiteP.id]!=='skip')?actions[parasiteP.id]:null;
+  const parasiteRaw=(parasiteP&&actions[parasiteP.id]!=null)?actions[parasiteP.id]:null;
   const nullified=new Set();
   let parasiteTarget=null;
   if(parasiteRaw!=null){
@@ -2531,30 +2516,39 @@ function resolveNightActions(players, actions, turn){
     else { parasiteTarget=rawTarget; nullified.add(parasiteTarget); }
   }
 
+  // 헬퍼: actions[id]가 null이 아닌 문자열 ID인지 확인 (객체 제외)
+  const getIdAction = (pid) => {
+    const v = actions[pid];
+    if(v==null) return null;
+    if(typeof v !== 'string') return null; // 객체(witch/bus)는 ID가 아님
+    return v;
+  };
+
+  // ── STEP 5: 각 능력자 타깃 계산 ──
   const gfP=Object.values(ps).find(p=>p.alive&&(p.roleId==='GODFATHER'||(p.roleId==='MAFIA'&&p._inherited)));
-  const gfRaw=(gfP&&actions[gfP.id]&&actions[gfP.id]!=='skip')?actions[gfP.id]:null;
-  const gfTarget=(gfRaw!=null&&!nullified.has(gfP?.id))?eff(gfP.id,gfRaw):null;
+  const gfRaw = gfP ? getIdAction(gfP.id) : null;
+  const gfTarget = (gfRaw!=null && !nullified.has(gfP?.id)) ? eff(gfP.id,gfRaw) : null;
 
   const docP=Object.values(ps).find(p=>p.alive&&p.roleId==='DOCTOR');
-  const docRaw=(docP&&actions[docP.id]&&actions[docP.id]!=='skip')?actions[docP.id]:null;
-  const docTarget=(docRaw!=null&&!nullified.has(docP?.id))?eff(docP.id,docRaw):null;
+  const docRaw = docP ? (actions[docP.id]!=null && typeof actions[docP.id]==='string' ? actions[docP.id] : null) : null;
+  const docTarget = (docRaw!=null && !nullified.has(docP?.id)) ? eff(docP.id,docRaw) : null;
 
+  // 퇴역군인: turn===2에서만, 반드시 문자열 ID
   const vetP=Object.values(ps).find(p=>p.alive&&p.roleId==='VETERAN');
-  // 퇴역군인은 반드시 turn===2이고, skip이 아닌 경우에만 적용
-  const vetRaw=(vetP&&turn===2&&actions[vetP.id]&&actions[vetP.id]!=='skip')?actions[vetP.id]:null;
-  const vetTarget=(vetRaw!=null&&!nullified.has(vetP?.id))?eff(vetP.id,vetRaw):null;
+  const vetRaw = (vetP && turn===2) ? getIdAction(vetP.id) : null;
+  const vetTarget = (vetRaw!=null && !nullified.has(vetP?.id)) ? eff(vetP.id,vetRaw) : null;
 
   const polP=Object.values(ps).find(p=>p.alive&&p.roleId==='POLICE');
-  const polRaw=(polP&&actions[polP.id]&&actions[polP.id]!=='skip')?actions[polP.id]:null;
-  const polTarget=(polRaw!=null&&!nullified.has(polP?.id))?eff(polP.id,polRaw):null;
+  const polRaw = polP ? getIdAction(polP.id) : null;
+  const polTarget = (polRaw!=null && !nullified.has(polP?.id)) ? eff(polP.id,polRaw) : null;
 
   const hunP=Object.values(ps).find(p=>p.alive&&p.roleId==='HUNTER');
-  const hunRaw=(hunP&&actions[hunP.id]&&actions[hunP.id]!=='skip')?actions[hunP.id]:null;
-  const hunTarget=(hunRaw!=null&&!nullified.has(hunP?.id))?eff(hunP.id,hunRaw):null;
+  const hunRaw = hunP ? getIdAction(hunP.id) : null;
+  const hunTarget = (hunRaw!=null && !nullified.has(hunP?.id)) ? eff(hunP.id,hunRaw) : null;
 
   const mafP=Object.values(ps).find(p=>p.alive&&p.roleId==='MAFIA'&&!p._inherited);
-  const mafRaw=(mafP&&actions[mafP.id]&&actions[mafP.id]!=='skip')?actions[mafP.id]:null;
-  const mafTarget=(mafRaw!=null&&!nullified.has(mafP?.id))?eff(mafP.id,mafRaw):null;
+  const mafRaw = mafP ? getIdAction(mafP.id) : null;
+  const mafTarget = (mafRaw!=null && !nullified.has(mafP?.id)) ? eff(mafP.id,mafRaw) : null;
 
   const abilityUsed={};
   if(gfTarget!=null) abilityUsed[gfP.id]=gfTarget;
@@ -2564,22 +2558,33 @@ function resolveNightActions(players, actions, turn){
   if(hunTarget!=null) abilityUsed[hunP.id]=hunTarget;
   if(mafTarget!=null) abilityUsed[mafP.id]=mafTarget;
 
+  // ── STEP 6: killed Set 구성 ──
+  // 규칙: 밤에 사망 처리는 대부(gfTarget) 또는 퇴역군인(vetTarget, turn2만) 각 1명
+  // 같은 플레이어를 둘 다 타깃하면 한 번만 처리
   const killed=new Set();
   const publicMsgs=[];
   let vetNoKill=false;
-  let busSwapped=null; // 버스기사 교환으로 실제 사망자가 바뀐 경우
+  let busSwapped=null;
 
-  if(vetTarget!=null){ const t=pById(vetTarget); if(t&&t.alive){ if(t.roleId==='GODFATHER'&&!t._inherited) vetNoKill=true; else if(docTarget!==vetTarget) killed.add(vetTarget); } }
+  // 퇴역군인 처리 (turn===2만, 이미 vetRaw에서 걸러짐)
+  if(vetTarget!=null){
+    const t=pById(vetTarget);
+    if(t&&t.alive){
+      if(t.roleId==='GODFATHER'&&!t._inherited) vetNoKill=true;
+      else if(docTarget!==vetTarget) killed.add(vetTarget);
+    }
+  }
   if(vetNoKill) publicMsgs.push("퇴역군인이 누군가를 공격했으나 죽지 않았습니다.");
 
-  let recruitedPlayer = null; // 창부로 영입된 플레이어 추적
+  let recruitedPlayer=null;
 
+  // 대부 처리
   if(gfTarget!=null){
     const t=pById(gfTarget);
     if(t&&t.alive){
       if(t.roleId==='PARASITE'){
         ps[gfTarget]={...ps[gfTarget],roleId:'PROSTITUTE'};
-        recruitedPlayer = t; // 영입된 플레이어 저장
+        recruitedPlayer=t;
         publicMsgs.push('💋 기생 플레이어가 밤사이 마피아로 포섭되었습니다.');
         pm(gfTarget,`당신은 대부 [${pById(gfP.id)?.nick}]에게 영입되어 창부가 되었습니다.`);
       } else if(docTarget===gfTarget){
