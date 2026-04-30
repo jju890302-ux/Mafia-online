@@ -689,13 +689,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <span class="switch-label">🔒 비밀번호 잠금</span>
       <button class="switch" id="lockSwitch" onclick="toggleLock(this)"></button>
     </div>
-    <div class="switch-row">
-      <div>
-        <span class="switch-label">🧪 테스트 모드</span>
-        <div style="font-size:0.68rem;color:var(--txt3);margin-top:2px;">모든 직업 공개 · 밤 행동 공개</div>
-      </div>
-      <button class="switch" id="testModeSwitch" onclick="toggleTestMode(this)"></button>
-    </div>
+
     <div id="lockPasswordRow" style="display:none;">
       <div class="field-label">비밀번호</div>
       <input class="text-input" id="roomPwInput" type="text" placeholder="방 비밀번호 (숫자·영문)" maxlength="8">
@@ -980,7 +974,6 @@ let nightActionDone = false;
 let pendingJoinRoomId = null;
 let myReady = false;
 let createPlayerCount = 6;
-let isTestMode = false;
 
 // WebRTC Voice Chat state
 let localStream = null;
@@ -1130,12 +1123,6 @@ window.toggleLock = function(btn){
   document.getElementById('lockPasswordRow').style.display = lockOn?'':'none';
 };
 
-let testModeOn = false;
-window.toggleTestMode = function(btn){
-  testModeOn = !testModeOn;
-  btn.className = 'switch' + (testModeOn?' on':'');
-};
-
 // ──────────────────────────────────────────────────────────────────────────────
 // ROOM LIST
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1191,7 +1178,6 @@ window.createRoom = async function(){
     password: pw||null, status:'waiting',
     hostId: myId,
     createdAt: Date.now(),
-    testMode: testModeOn,
     players:{
       [myId]:{ id:myId, nick:myNick, ready:false, alive:true, joinedAt:Date.now() }
     },
@@ -1572,7 +1558,6 @@ window.requestStartGame = async function(){
 // ──────────────────────────────────────────────────────────────────────────────
 function enterGame(room){
   showScreen('sGame');
-  isTestMode = room.testMode||false;
   gameState = room.gameState;
   myRole = gameState.players[myId];
   renderGameSidebar();
@@ -1581,7 +1566,6 @@ function enterGame(room){
   startVoiceChat(room);
   listenNightActions();
   speak('게임이 시작되었습니다. 각 플레이어는 자신의 직업을 확인하세요.');
-  if(isTestMode) toast('🧪 테스트 모드: 모든 직업과 밤 행동이 공개됩니다','info');
 }
 
 function updateGameFromRoom(room){
@@ -1644,13 +1628,10 @@ function renderPlayerStrip(){
     else if(phase==='vote' && voteCount>0) extraTag = `<div class="ps-votes">▲${voteCount}</div>`;
     else if(isMafiaTeam) extraTag = `<div class="ps-role-tag">${ROLES[p.roleId]?.name||''}</div>`;
     const hasMemo = playerMemos[p.id] && (playerMemos[p.id].text || playerMemos[p.id].tags?.length);
-    const testRoleTag = (isTestMode && p.roleId)
-      ? `<div style="font-size:0.55rem;color:${FC[ROLES[p.roleId]?.faction||'citizen']};font-weight:700;">${ROLES[p.roleId]?.emoji||''}${ROLES[p.roleId]?.name||''}</div>`
-      : '';
     return `<div class="ps-item${!p.alive?' dead':''} ${isMe?'ps-me':''}" onclick="clickPlayer('${p.id}')" style="position:relative;">
       <div class="ps-avatar${iVoted?' my-target':voteCount>0?' voted-target':''}">${(p.nick||'?')[0]}${hasMemo?'<div class="ps-memo-dot"></div>':''}</div>
       <div class="ps-name">${esc(p.nick)}${isMe?' ·나':''}</div>
-      ${isTestMode ? testRoleTag : extraTag}
+      ${extraTag}
     </div>`;
   }).join('');
 }
@@ -2313,7 +2294,6 @@ async function doResolveNight(){
     Object.entries(result.privateMsgs).forEach(([pid,msgs])=>{ pmUpdates[`gameState/privateMsgs/${pid}`]=msgs; });
 
     const win=checkWin(result.players);
-    const testLog = currentRoomData?.testMode ? (result.testLog||[]) : null;
 
     await update(ref(db,`rooms/${currentRoomId}`),{
       'gameState/players':result.players,
@@ -2323,7 +2303,6 @@ async function doResolveNight(){
       'gameState/phaseEndTime':Date.now()+15000,
       'gameState/publicAnnouncements':result.announcements,
       'gameState/pendingWin':win||null,
-      'gameState/testLog':testLog,
       ...pmUpdates
     });
   } finally {
@@ -2458,12 +2437,6 @@ function renderNightResultPhase(area){
       <div class="timer-bar" style="margin-top:4px;"><div class="timer-fill" id="nightResultBar" style="width:100%;background:var(--gold);transition:width 1s linear;"></div></div>
     </div>
 
-    <!-- 테스트 모드: 밤 행동 공개 패널 -->
-    ${isTestMode && (gameState.testLog||[]).length > 0 ? `
-    <div style="width:100%;background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.3);border-radius:12px;padding:12px 14px;">
-      <div style="font-size:0.68rem;color:#b07de0;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">🧪 테스트 — 밤 행동 내역</div>
-      ${(gameState.testLog||[]).map(log=>`<div style="font-size:0.78rem;color:#c09de0;padding:3px 0;border-bottom:1px solid rgba(155,89,182,0.15);">${esc(log)}</div>`).join('')}
-    </div>` : ''}
 
     <!-- 방장: 바로 넘기기 버튼 -->
     <div style="width:100%;margin-top:4px;">
@@ -2758,26 +2731,7 @@ function resolveNightActions(players, actionsRaw, turn){
     announcements.push({type:'quiet', icon:'🌙', title:'평온한 밤', sub:'이번 밤 아무 일도 일어나지 않았습니다'});
   }
 
-  // 테스트 모드용 행동 로그
-  const testLog = [];
-  const allActors = [
-    {p:gfP,  target:gfTarget,  raw:gfRaw,  label:'대부'},
-    {p:vetP, target:vetTarget, raw:vetRaw, label:'퇴역군인'},
-    {p:docP, target:docTarget, raw:docRaw, label:'의사'},
-    {p:polP, target:polTarget, raw:polRaw, label:'경찰'},
-    {p:hunP, target:hunTarget, raw:hunRaw, label:'사냥꾼'},
-    {p:mafP, target:mafTarget, raw:mafRaw, label:'마피아일원'},
-  ];
-  allActors.forEach(({p,target,raw,label})=>{
-    if(!p) return;
-    const tP = target ? pById(target) : (raw ? pById(raw) : null);
-    if(raw!=null||target!=null) testLog.push(`${label}[${p.nick}] → ${tP?tP.nick:'?'}`);
-  });
-  if(parasiteP&&parasiteTarget) testLog.push(`기생/창부[${parasiteP.nick}] → ${pById(parasiteTarget)?.nick||'?'} 차단`);
-  if(witchAct){ const sP=pById(witchAct.source),tP=pById(witchAct.target); if(sP&&tP) testLog.push(`마녀[${witchP?.nick}] → ${sP.nick} 능력을 ${tP.nick}에게`); }
-  if(busAct0&&!busNullified){ const sP=pById(busAct0.source),tP=pById(busAct0.target); if(sP&&tP) testLog.push(`버스기사[${busP0?.nick}] ↔ ${sP.nick}·${tP.nick} 교환`); }
-
-  return {players:ps, publicMsgs, privateMsgs, announcements, testLog};
+  return {players:ps, publicMsgs, privateMsgs, announcements};
 }
 
 function checkWin(players){
