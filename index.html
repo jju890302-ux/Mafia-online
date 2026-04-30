@@ -2273,38 +2273,41 @@ let _resolveNightRunning = false;
 
 async function doResolveNight(){
   if(!isHost||!gameState) return;
-  if(_resolveNightRunning){ console.log('doResolveNight: already running, skip'); return; }
+  if(_resolveNightRunning){ return; }
   _resolveNightRunning = true;
-  // Firebase phase 재확인
+
   try {
+    // Firebase phase 재확인
     const phaseSnap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
-    if(phaseSnap.val() !== 'night'){ _resolveNightRunning=false; return; }
-  } catch(e){ _resolveNightRunning=false; return; }
-  // 최신 nightActions를 Firebase에서 직접 읽기
-  let freshActions={};
-  try { const s=await get(ref(db,`rooms/${currentRoomId}/gameState/nightActions`)); freshActions=s.val()||{}; } catch(e){}
-  const result=resolveNightActions(gameState.players, freshActions, gameState.turn||1);
+    if(phaseSnap.val() !== 'night') return;
 
-  // 공개 메시지를 채팅으로도 보내고, gameState.publicAnnouncements에도 저장
-  for(const msg of result.publicMsgs) await sendSystemChat(msg);
+    // 최신 nightActions를 Firebase에서 직접 읽기
+    let freshActions={};
+    try { const s=await get(ref(db,`rooms/${currentRoomId}/gameState/nightActions`)); freshActions=s.val()||{}; } catch(e){}
 
-  // Private messages + public announcements 저장
-  const pmUpdates={};
-  Object.entries(result.privateMsgs).forEach(([pid,msgs])=>{ pmUpdates[`gameState/privateMsgs/${pid}`]=msgs; });
+    const result=resolveNightActions(gameState.players, freshActions, gameState.turn||1);
 
-  // 승리 조건 충족 여부 확인 — nightResult를 먼저 보여준 후 ended로 전환
-  const win=checkWin(result.players);
+    for(const msg of result.publicMsgs) await sendSystemChat(msg);
 
-  await update(ref(db,`rooms/${currentRoomId}`),{
-    'gameState/players':result.players,
-    'gameState/nightActions':{},
-    'gameState/phase':'nightResult',
-    'gameState/phaseStartTime':Date.now(),
-    'gameState/phaseEndTime':Date.now()+15000,
-    'gameState/publicAnnouncements':result.announcements,
-    'gameState/pendingWin':win||null, // 승리 결과 임시 저장
-    ...pmUpdates
-  });
+    const pmUpdates={};
+    Object.entries(result.privateMsgs).forEach(([pid,msgs])=>{ pmUpdates[`gameState/privateMsgs/${pid}`]=msgs; });
+
+    const win=checkWin(result.players);
+
+    await update(ref(db,`rooms/${currentRoomId}`),{
+      'gameState/players':result.players,
+      'gameState/nightActions':{},
+      'gameState/phase':'nightResult',
+      'gameState/phaseStartTime':Date.now(),
+      'gameState/phaseEndTime':Date.now()+15000,
+      'gameState/publicAnnouncements':result.announcements,
+      'gameState/pendingWin':win||null,
+      ...pmUpdates
+    });
+  } finally {
+    // 성공/실패/예외 어떤 경우에도 반드시 초기화
+    _resolveNightRunning = false;
+  }
 }
 
 // 투표 결과 TTS
