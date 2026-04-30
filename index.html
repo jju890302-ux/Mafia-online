@@ -1243,9 +1243,9 @@ window.joinAsSpectator = async function(roomId){
     myRole = null; // 관전자는 역할 없음
     renderGameSidebar();
     renderGamePhase();
-    startVoiceChat(room);
+    startVoiceChat(room); // 듣기용으로 연결 (마이크는 비활성)
     listenNightActions();
-    toast('👁 관전 모드로 참가했습니다. 사망자 채팅·음성채팅만 가능합니다.','info');
+    toast('👁 관전 모드로 참가했습니다. 채팅만 가능하며 음성은 듣기 전용입니다.','info');
   } catch(e){
     isSpectator = false;
     toast('관전 참가 실패: '+(e.message||'오류'),'error');
@@ -3209,8 +3209,9 @@ function updateVoiceChannelAccess(){
     let canHear = false;
     const peerIsSpectator = !gameState?.players?.[peerId]; // spectators에만 있는 경우
     if(isSpectator){
-      // 관전자: 사망자 + 다른 관전자와만 통신
-      canHear = !peerAlive || peerIsSpectator;
+      // 관전자: 모든 채널 듣기 가능 (단 마피아 야간 채팅 제외)
+      const peerIsMafianight = phase==='night' && peerIsMafia && peerAlive;
+      canHear = !peerIsMafianight; // 마피아 야간 대화만 차단, 나머지 다 들림
     } else if(phase==='night'){
       if(!isAlive && (!peerAlive || peerIsSpectator)) canHear = true; // 사망자↔(사망자+관전자)
       else canHear = isMafiaRole && isAlive && peerIsMafia && peerAlive;
@@ -3224,7 +3225,7 @@ function updateVoiceChannelAccess(){
   // 로컬 마이크 enable/disable
   let canSpeak = false;
   if(isSpectator){
-    canSpeak = true; // 관전자는 항상 말할 수 있음 (사망자 채널)
+    canSpeak = false; // 관전자는 마이크 사용 불가
   } else if(phase==='night'){
     canSpeak = (!isAlive) || (isMafiaRole && isAlive);
   } else {
@@ -3234,8 +3235,8 @@ function updateVoiceChannelAccess(){
   const voiceLabel=document.getElementById('voiceLabel');
   const voiceDot=document.getElementById('voiceDot');
   if(isSpectator){
-    if(voiceLabel) voiceLabel.textContent='👁 관전자 — 사망자 채널';
-    if(voiceDot) voiceDot.className='voice-dot active';
+    if(voiceLabel) voiceLabel.textContent='👁 관전자 — 듣기 전용';
+    if(voiceDot) voiceDot.className='voice-dot'; // 말 못하므로 비활성 색
   } else if(phase==='night'&&isMafiaRole&&isAlive){
     if(voiceLabel) voiceLabel.textContent='마피아 음성채팅 활성';
     if(voiceDot) voiceDot.className='voice-dot mafia';
@@ -3257,6 +3258,7 @@ function updateVoiceChannelAccess(){
 
 
 window.toggleMic = async function(){
+  if(isSpectator){ toast('관전자는 음성채팅을 사용할 수 없습니다','error'); return; }
   if(!localStream){
     // 마이크 미연결 시 재시도
     await initLobbyMic();
