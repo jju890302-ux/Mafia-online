@@ -1,0 +1,3404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAFIA ONLINE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09080e;
+  --bg2:#0f0d18;
+  --bg3:#14111f;
+  --panel:#111019;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --gold:#c9a84c;
+  --gold2:#e8c97a;
+  --red:#c0392b;
+  --red2:#e74c3c;
+  --teal:#1abc9c;
+  --purple:#9b59b6;
+  --txt:#e0d9f0;
+  --txt2:#8a8299;
+  --txt3:#5a5570;
+  --mafia:#e74c3c;
+  --citizen:#1abc9c;
+  --neutral:#9b59b6;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(192,57,43,0.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(155,89,182,0.05) 0%,transparent 50%);pointer-events:none;z-index:0;}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh;position:relative;z-index:1;}
+.screen.active{display:flex;}
+
+/* ── LOBBY / HOME ── */
+#sHome{flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:0;}
+.home-logo{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:48px;}
+.logo-eyebrow{font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.4em;color:var(--txt3);text-transform:uppercase;}
+.logo-title{font-family:'Cinzel',serif;font-size:4rem;font-weight:900;background:linear-gradient(135deg,#c9a84c 0%,#e8c97a 40%,#c9a84c 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:0.1em;line-height:1;text-shadow:none;}
+.logo-sub{font-family:'Cinzel',serif;font-size:0.75rem;letter-spacing:0.35em;color:var(--txt3);text-transform:uppercase;margin-top:2px;}
+.logo-rose{font-size:1.1rem;position:relative;top:-4px;}
+.home-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:500px;margin-bottom:24px;}
+.home-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.home-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,0.02));pointer-events:none;}
+.home-card:hover{border-color:rgba(201,168,76,0.35);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.home-card-icon{font-size:1.8rem;margin-bottom:4px;}
+.home-card-title{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold);letter-spacing:0.05em;font-weight:600;}
+.home-card-desc{font-size:0.7rem;color:var(--txt3);text-align:center;line-height:1.5;}
+.home-card.full{grid-column:1/-1;}
+.win-conditions{width:100%;max-width:500px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 20px;}
+.win-row{display:flex;align-items:center;gap:12px;padding:6px 0;font-size:0.78rem;color:var(--txt2);}
+.win-row:not(:last-child){border-bottom:1px solid rgba(255,255,255,0.04);}
+.win-faction{font-weight:700;font-size:0.75rem;min-width:60px;}
+
+/* ── ROOM BROWSER ── */
+#sRoomList{flex-direction:column;padding:0;background:var(--bg);}
+.top-bar{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100;}
+.top-bar-title{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);letter-spacing:0.08em;flex:1;}
+.room-list-body{padding:16px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;}
+.room-item{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all 0.18s;}
+.room-item:hover{border-color:var(--border2);background:rgba(255,255,255,0.03);}
+.room-item-name{font-weight:700;font-size:0.95rem;flex:1;}
+.room-item-count{font-size:0.8rem;color:var(--txt3);}
+.room-item-status{font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;}
+.status-waiting{background:rgba(26,188,156,0.15);color:var(--teal);border:1px solid rgba(26,188,156,0.3);}
+.status-playing{background:rgba(231,76,60,0.15);color:var(--red2);border:1px solid rgba(231,76,60,0.3);}
+.room-item-lock{color:var(--txt3);font-size:0.85rem;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--txt3);}
+.empty-icon{font-size:2.5rem;opacity:0.5;}
+.empty-text{font-size:0.85rem;}
+
+/* ── CREATE ROOM ── */
+#sCreateRoom{flex-direction:column;padding:0;}
+.create-body{padding:20px 16px 40px;display:flex;flex-direction:column;gap:16px;max-width:460px;width:100%;margin:0 auto;}
+.field-label{font-size:0.7rem;color:var(--txt3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:-8px;font-weight:600;}
+.text-input{background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;color:var(--txt);font-size:0.95rem;outline:none;width:100%;font-family:'Noto Sans KR',sans-serif;transition:border-color 0.18s;}
+.text-input:focus{border-color:rgba(201,168,76,0.45);}
+.text-input::placeholder{color:var(--txt3);}
+.pill-row{display:flex;flex-wrap:wrap;gap:8px;}
+.pill{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;padding:7px 16px;font-size:0.82rem;cursor:pointer;transition:all 0.15s;font-family:'Noto Sans KR',sans-serif;color:var(--txt2);}
+.pill.active{background:rgba(201,168,76,0.18);border-color:rgba(201,168,76,0.5);color:var(--gold);}
+.role-preview{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;min-height:48px;}
+.role-tag{border-radius:20px;padding:4px 12px;font-size:0.75rem;display:flex;align-items:center;gap:5px;border:1px solid;}
+.switch-row{display:flex;align-items:center;justify-content:space-between;}
+.switch-label{font-size:0.85rem;color:var(--txt2);}
+.switch{width:44px;height:24px;background:rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;position:relative;transition:background 0.2s;border:none;}
+.switch.on{background:var(--teal);}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.4);}
+.switch.on::after{transform:translateX(20px);}
+
+/* ── ROOM LOBBY ── */
+#sRoomLobby{flex-direction:column;padding:0;}
+.room-header{padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.room-name-title{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);flex:1;}
+.room-code-box{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);border-radius:8px;padding:4px 12px;font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold);cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.15s;}
+.room-code-box:hover{background:rgba(201,168,76,0.18);}
+/* unified lobby body */
+.lobby-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;}
+.lobby-section-label{font-size:0.67rem;color:var(--txt3);letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-top:4px;}
+.player-slot{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:11px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);transition:border-color 0.15s;}
+.player-slot.me{border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.04);}
+.player-slot.ai-slot{border-style:dashed;border-color:rgba(155,89,182,0.3);background:rgba(155,89,182,0.04);}
+.player-slot.empty-slot{border-style:dashed;opacity:0.4;}
+.player-avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;}
+.player-avatar.ai-av{background:rgba(155,89,182,0.2);}
+.player-name{font-size:0.88rem;font-weight:700;flex:1;}
+.player-host{font-size:0.63rem;background:rgba(201,168,76,0.2);color:var(--gold);border-radius:10px;padding:2px 8px;border:1px solid rgba(201,168,76,0.3);}
+.ai-badge{font-size:0.63rem;background:rgba(155,89,182,0.2);color:#b07de0;border-radius:10px;padding:2px 8px;border:1px solid rgba(155,89,182,0.3);}
+.voice-icon{font-size:0.9rem;color:var(--txt3);}
+.voice-icon.active{color:var(--teal);}
+.voice-icon.muted{color:var(--red2);}
+.lobby-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.countdown-bar{position:relative;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin:0 16px;}
+.countdown-fill{height:100%;background:var(--gold);border-radius:2px;transition:width 1s linear;}
+.status-txt{font-size:0.8rem;color:var(--txt3);flex:1;}
+/* AI controls */
+.ai-controls{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:11px;background:rgba(155,89,182,0.06);border:1px dashed rgba(155,89,182,0.25);}
+.ai-ctrl-label{font-size:0.8rem;color:#b07de0;flex:1;}
+.ai-count-btn{background:rgba(155,89,182,0.2);border:1px solid rgba(155,89,182,0.35);color:#c09de0;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'Noto Sans KR',sans-serif;}
+.ai-count-btn:hover{background:rgba(155,89,182,0.35);}
+.ai-count-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.ai-count-num{font-family:'Cinzel',serif;font-size:1rem;color:#c09de0;min-width:20px;text-align:center;}
+
+/* ── GAME AREA — 모바일 세로 최적화 ── */
+#sGame{
+  flex-direction:column;
+  padding:0;
+  background:var(--bg);
+  height:100vh;
+  height:100dvh;
+  overflow:hidden;
+}
+
+/* ── 상단 헤더 (고정) ── */
+.game-header{
+  display:flex;align-items:center;
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  background:rgba(9,8,14,0.95);
+  backdrop-filter:blur(12px);
+  gap:10px;
+  flex-shrink:0;
+  z-index:50;
+}
+.game-phase{font-family:'Cinzel',serif;font-size:0.82rem;color:var(--gold);letter-spacing:0.05em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.game-timer{font-family:'Cinzel',serif;font-size:1.35rem;color:var(--txt);font-weight:700;flex-shrink:0;}
+.game-timer.urgent{color:var(--red2);animation:pulse 1s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
+.game-header-mic{border:none;background:rgba(26,188,156,0.15);border:1px solid rgba(26,188,156,0.3);border-radius:8px;color:var(--teal);padding:6px 10px;font-size:0.8rem;cursor:pointer;flex-shrink:0;font-family:'Noto Sans KR',sans-serif;font-weight:700;transition:all 0.18s;}
+.game-header-mic.muted{background:rgba(231,76,60,0.15);border-color:rgba(231,76,60,0.3);color:var(--red2);}
+.game-header-chat-btn{border:none;background:rgba(255,255,255,0.08);border:1px solid var(--border2);border-radius:8px;color:var(--txt2);padding:6px 10px;font-size:0.8rem;cursor:pointer;flex-shrink:0;font-family:'Noto Sans KR',sans-serif;font-weight:700;transition:all 0.18s;position:relative;}
+.chat-unread-dot{position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:var(--red2);border-radius:50%;display:none;}
+
+/* ── 플레이어 그리드 (상단 고정 띠) ── */
+.player-strip{
+  flex-shrink:0;
+  display:flex;
+  gap:6px;
+  padding:8px 12px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,0.25);
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+}
+.player-strip::-webkit-scrollbar{display:none;}
+.ps-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  flex-shrink:0;scroll-snap-align:start;
+  cursor:pointer;
+  padding:4px 6px;
+  border-radius:10px;
+  border:1.5px solid transparent;
+  transition:all 0.15s;
+  min-width:52px;
+}
+.ps-item.dead{opacity:0.32;filter:grayscale(1);cursor:default;}
+.ps-item.ps-selected{border-color:var(--red2);background:rgba(231,76,60,0.15);}
+.ps-item.ps-me{border-color:rgba(201,168,76,0.4);}
+.ps-avatar{
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;
+  border:2px solid transparent;
+  position:relative;
+  transition:border-color 0.2s;
+}
+.ps-avatar.speaking{border-color:var(--teal);box-shadow:0 0 0 2px rgba(26,188,156,0.3);}
+.ps-avatar.voted-target{border-color:var(--red2);}
+.ps-avatar.my-target{border-color:var(--gold);}
+.ps-name{font-size:0.62rem;color:var(--txt2);font-weight:600;text-align:center;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ps-votes{font-size:0.58rem;color:var(--red2);font-weight:700;}
+.ps-role-tag{font-size:0.55rem;color:var(--gold);font-weight:700;background:rgba(201,168,76,0.15);border-radius:4px;padding:1px 4px;}
+.ps-dead-tag{font-size:0.55rem;color:var(--red2);}
+
+/* ── 메인 컨텐츠 (스크롤 가능) ── */
+.game-main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  position:relative;
+}
+.phase-area{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:16px 14px 12px;
+  gap:12px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* ── 채팅 드로어 (하단 슬라이드업) ── */
+.chat-drawer{
+  position:absolute;
+  bottom:0;left:0;right:0;
+  background:var(--bg3);
+  border-top:1px solid var(--border2);
+  border-radius:18px 18px 0 0;
+  display:flex;flex-direction:column;
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  transform:translateY(100%);
+  z-index:40;
+  max-height:65vh;
+  box-shadow:0 -8px 32px rgba(0,0,0,0.5);
+}
+.chat-drawer.open{transform:translateY(0);}
+.chat-drawer-handle{
+  width:36px;height:4px;background:rgba(255,255,255,0.2);
+  border-radius:2px;margin:10px auto 0;flex-shrink:0;cursor:pointer;
+}
+.chat-header{
+  padding:10px 16px 8px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+.chat-title{font-size:0.75rem;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;font-weight:600;flex:1;}
+.chat-close-btn{background:rgba(255,255,255,0.07);border:none;color:var(--txt2);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;}
+.chat-msgs{flex:1;overflow-y:auto;padding:10px 14px;-webkit-overflow-scrolling:touch;}
+.chat-msg{margin-bottom:8px;}
+.chat-msg-name{font-size:0.68rem;color:var(--txt3);margin-bottom:2px;}
+.chat-msg-name.mafia-msg{color:var(--mafia);}
+.chat-msg-name.system-msg{color:var(--gold);}
+.chat-msg-text{background:rgba(255,255,255,0.05);border-radius:8px;padding:7px 10px;font-size:0.82rem;line-height:1.5;}
+.chat-msg-text.mafia-chat{background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.2);}
+.chat-msg-text.system-chat{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);color:var(--gold);}
+.chat-input-row{
+  padding:10px 12px;
+  border-top:1px solid var(--border);
+  display:flex;gap:8px;
+  flex-shrink:0;
+  padding-bottom:max(10px, env(safe-area-inset-bottom));
+}
+.chat-input{
+  flex:1;background:rgba(255,255,255,0.07);
+  border:1px solid var(--border);border-radius:22px;
+  padding:10px 16px;color:var(--txt);font-size:0.9rem;
+  outline:none;font-family:'Noto Sans KR',sans-serif;
+}
+.chat-input:focus{border-color:var(--border2);}
+.chat-send-btn{
+  background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.35);
+  border-radius:50%;color:var(--gold);
+  width:40px;height:40px;
+  cursor:pointer;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;flex-shrink:0;
+}
+.chat-send-btn:hover{background:rgba(201,168,76,0.35);}
+
+/* 채팅 오버레이 배경 */
+.chat-overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:39;
+  display:none;
+}
+.chat-overlay.visible{display:block;}
+
+/* ── 하단 액션 바 ── */
+.game-bottom-bar{
+  flex-shrink:0;
+  display:flex;align-items:center;
+  padding:8px 12px;
+  padding-bottom:max(8px, env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);
+  background:rgba(9,8,14,0.95);
+  gap:8px;
+  z-index:30;
+}
+.voice-status{
+  flex:1;display:flex;align-items:center;gap:6px;
+  font-size:0.72rem;color:var(--txt3);
+  overflow:hidden;
+}
+.voice-dot{width:7px;height:7px;border-radius:50%;background:var(--txt3);flex-shrink:0;}
+.voice-dot.active{background:var(--teal);animation:voicePulse 1.5s ease-in-out infinite;}
+.voice-dot.mafia{background:var(--red2);animation:voicePulse 1.5s ease-in-out infinite;}
+@keyframes voicePulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(0.8);}}
+
+/* ── 페이즈별 컨텐츠 스타일 ── */
+.day-bg{background:linear-gradient(180deg,#1a0f02 0%,var(--bg) 60%);}
+.night-bg{background:linear-gradient(180deg,#04030c 0%,var(--bg) 60%);}
+
+.phase-banner{
+  font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);
+  letter-spacing:0.06em;text-align:center;
+  padding:4px 0;
+}
+.timer-display{
+  font-family:'Cinzel',serif;font-size:3rem;font-weight:900;
+  color:var(--txt);line-height:1;text-align:center;
+}
+.timer-bar{
+  width:100%;height:4px;
+  background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;
+}
+.timer-fill{height:100%;border-radius:2px;transition:width 1s linear;}
+
+/* 역할 카드 */
+.role-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:18px;padding:22px 18px;
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.role-emoji-big{font-size:3rem;line-height:1;}
+.role-name-big{font-family:'Cinzel',serif;font-size:1.5rem;font-weight:700;letter-spacing:0.05em;}
+.role-faction-txt{font-size:0.75rem;color:var(--txt3);letter-spacing:0.1em;text-transform:uppercase;}
+.role-desc-box{
+  background:rgba(255,255,255,0.04);border-radius:10px;
+  padding:10px 14px;font-size:0.8rem;color:var(--txt2);
+  line-height:1.7;white-space:pre-line;width:100%;text-align:center;
+}
+.auto-hide-txt{font-size:0.7rem;color:var(--txt3);}
+.mafia-team-box{
+  background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);
+  border-radius:10px;padding:9px 14px;font-size:0.8rem;
+  color:#f0a0a0;width:100%;text-align:center;line-height:1.8;
+}
+
+/* 투표 / 타깃 리스트 */
+.target-list{display:flex;flex-direction:column;gap:6px;width:100%;}
+.target-btn{
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  border-radius:12px;padding:13px 16px;text-align:left;
+  color:var(--txt);font-size:0.92rem;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+  transition:all 0.15s;display:flex;align-items:center;gap:10px;
+  -webkit-tap-highlight-color:transparent;
+}
+.target-btn:active{background:rgba(255,255,255,0.1);}
+.target-btn.selected{background:rgba(231,76,60,0.2);border-color:var(--red2);color:#fff;}
+
+/* 밤 대기 박스 */
+.night-wait-box{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  border-radius:14px;padding:24px 18px;
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
+}
+.night-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;width:100%;}
+.night-instr{font-size:0.84rem;color:var(--txt2);text-align:center;white-space:pre-line;line-height:1.7;}
+.wait-txt{font-size:0.84rem;color:var(--txt3);line-height:1.6;}
+
+/* 투표 집계 바 */
+.vote-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.vote-bar-name{font-size:0.8rem;font-weight:600;min-width:64px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vote-bar-bg{flex:1;height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;}
+.vote-bar-fill{height:100%;background:var(--red2);border-radius:4px;transition:width 0.3s;}
+.vote-bar-cnt{font-size:0.75rem;color:var(--txt3);min-width:24px;text-align:right;}
+
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:10px;cursor:pointer;font-weight:700;transition:all 0.18s;padding:12px 20px;font-size:0.9rem;font-family:'Noto Sans KR',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e8c97a);color:#1a1208;}
+.btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-gold:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.btn-outline{background:transparent;color:var(--txt2);border:1px solid var(--border2);}
+.btn-outline:hover{background:rgba(255,255,255,0.06);}
+.btn-red{background:rgba(231,76,60,0.2);color:var(--red2);border:1px solid rgba(231,76,60,0.4);}
+.btn-red:hover{background:rgba(231,76,60,0.3);}
+.btn-danger{background:var(--red2);color:#fff;}
+.btn-danger:hover{background:#c0392b;}
+.btn-ghost{background:transparent;color:var(--txt3);border:1px solid transparent;}
+.btn-ghost:hover{color:var(--txt2);}
+.btn-sm{padding:7px 14px;font-size:0.78rem;border-radius:8px;}
+.btn-lg{padding:15px 32px;font-size:1rem;border-radius:12px;}
+.btn-full{width:100%;}
+.row2{display:flex;gap:10px;width:100%;}
+.row2 .btn{flex:1;}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;}
+.modal-overlay.hidden{display:none;}
+.modal{background:var(--bg3);border:1px solid var(--border2);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease;}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);letter-spacing:0.05em;}
+.modal-close{background:rgba(255,255,255,0.07);border:none;color:var(--txt2);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.modal-body{overflow-y:auto;padding:16px 20px 28px;display:flex;flex-direction:column;gap:12px;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── NICKNAME SETUP ── */
+#sNickname{flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:20px;}
+.nick-logo{font-family:'Cinzel',serif;font-size:2rem;color:var(--gold);letter-spacing:0.1em;font-weight:900;}
+.nick-card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:28px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px;}
+.nick-hint{font-size:0.78rem;color:var(--txt3);text-align:center;}
+
+/* ── TOASTS ── */
+.toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9000;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:min(360px,90vw);}
+.toast{background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:0.84rem;color:var(--txt);display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.6);animation:toastIn 0.3s ease;pointer-events:all;}
+.toast.success{border-color:rgba(26,188,156,0.4);}
+.toast.error{border-color:rgba(231,76,60,0.4);}
+.toast.info{border-color:rgba(201,168,76,0.35);}
+@keyframes toastIn{from{transform:translateY(-16px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── END SCREEN ── */
+#sEnd{flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:20px;}
+.end-glow{position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:500px;height:500px;border-radius:50%;pointer-events:none;opacity:0.15;}
+.end-title{font-family:'Cinzel',serif;font-size:2.5rem;font-weight:900;text-align:center;position:relative;}
+.end-sub{font-size:0.9rem;color:var(--txt3);}
+.end-players{width:100%;max-width:440px;display:flex;flex-direction:column;gap:6px;}
+.end-row{background:var(--panel);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;font-size:0.88rem;border:1px solid var(--border);}
+.end-row.dead{opacity:0.4;}
+
+/* ── LOADING ── */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.loading-logo{font-family:'Cinzel',serif;font-size:1.8rem;color:var(--gold);letter-spacing:0.15em;animation:pulseFade 2s ease-in-out infinite;}
+@keyframes pulseFade{0%,100%{opacity:0.6}50%{opacity:1}}
+.loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── MISC ── */
+.divider{width:100%;height:1px;background:var(--border);}
+.tag{border-radius:20px;padding:3px 10px;font-size:0.7rem;font-weight:700;}
+.section-title{font-size:0.7rem;color:var(--txt3);letter-spacing:0.12em;text-transform:uppercase;font-weight:600;}
+.help-btn{position:fixed;bottom:20px;right:20px;z-index:8000;width:40px;height:40px;border-radius:50%;background:rgba(201,168,76,0.15);border:1.5px solid rgba(201,168,76,0.35);color:var(--gold);font-size:1rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s;}
+.help-btn:hover{background:rgba(201,168,76,0.28);}
+.role-row-help{display:flex;align-items:flex-start;gap:12px;background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 14px;border:1px solid var(--border);}
+.role-row-help.mafia{border-color:rgba(231,76,60,0.2);}
+.role-row-help.citizen{border-color:rgba(26,188,156,0.18);}
+.role-row-help.neutral{border-color:rgba(155,89,182,0.22);}
+.spinner-sm{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;}
+
+/* Night phase pending indicator */
+.pending-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);animation:pulse 1.5s ease-in-out infinite;}
+.done-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);}
+.qdots{display:flex;gap:6px;align-items:center;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+
+/* Safe area for notch/home bar */
+@supports(padding:max(0px)){
+  .game-bottom-bar{padding-bottom:max(8px,env(safe-area-inset-bottom));}
+  .chat-input-row{padding-bottom:max(10px,env(safe-area-inset-bottom));}
+}
+
+/* ── 플레이어 메모 모달 ── */
+.memo-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);
+  z-index:300;display:flex;align-items:flex-end;justify-content:center;
+  animation:fadeIn 0.18s ease;
+}
+.memo-modal-overlay.hidden{display:none;}
+.memo-modal{
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:20px 20px 0 0;
+  width:100%;max-width:480px;
+  padding:0 0 max(20px,env(safe-area-inset-bottom));
+  animation:slideUp 0.22s ease;
+}
+.memo-modal-hdr{
+  display:flex;align-items:center;gap:10px;
+  padding:16px 18px 12px;
+  border-bottom:1px solid var(--border);
+}
+.memo-player-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;font-weight:700;flex-shrink:0;
+}
+.memo-player-name{font-size:0.95rem;font-weight:700;flex:1;}
+.memo-close{
+  background:rgba(255,255,255,0.07);border:none;
+  color:var(--txt2);width:28px;height:28px;border-radius:50%;
+  cursor:pointer;font-size:0.9rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.memo-body{padding:12px 18px 0;}
+.memo-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.memo-tag{
+  border:1px solid;border-radius:20px;padding:5px 12px;
+  font-size:0.75rem;cursor:pointer;font-family:'Noto Sans KR',sans-serif;
+  font-weight:600;transition:all 0.15s;background:transparent;
+  -webkit-tap-highlight-color:transparent;
+}
+.memo-tag.active{color:#fff!important;}
+.memo-textarea{
+  width:100%;background:rgba(255,255,255,0.05);
+  border:1px solid var(--border2);border-radius:12px;
+  padding:11px 14px;color:var(--txt);
+  font-size:0.88rem;line-height:1.6;
+  font-family:'Noto Sans KR',sans-serif;
+  outline:none;resize:none;min-height:80px;
+  transition:border-color 0.18s;
+}
+.memo-textarea:focus{border-color:rgba(201,168,76,0.45);}
+.memo-textarea::placeholder{color:var(--txt3);}
+.memo-footer{
+  display:flex;gap:8px;padding:10px 18px 0;
+  align-items:center;
+}
+.memo-save-btn{
+  flex:1;background:linear-gradient(135deg,#c9a84c,#e8c97a);
+  color:#1a1208;border:none;border-radius:10px;
+  padding:11px;font-size:0.88rem;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+}
+.memo-clear-btn{
+  background:rgba(255,255,255,0.06);border:1px solid var(--border2);
+  color:var(--txt3);border-radius:10px;
+  padding:11px 16px;font-size:0.82rem;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+}
+/* 플레이어 스트립 메모 표시 */
+.ps-memo-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--gold);flex-shrink:0;
+  position:absolute;top:1px;right:1px;
+}
+
+/* ── 밤 결과 공개 공지 ── */
+.night-announce{
+  width:100%;
+  display:flex;flex-direction:column;gap:10px;
+}
+.night-announce-card{
+  border-radius:16px;padding:18px 16px;
+  display:flex;align-items:center;gap:14px;
+  animation:announceIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.night-announce-card.death{
+  background:linear-gradient(135deg,rgba(231,76,60,0.15),rgba(192,57,43,0.08));
+  border:1px solid rgba(231,76,60,0.35);
+}
+.night-announce-card.saved{
+  background:linear-gradient(135deg,rgba(26,188,156,0.15),rgba(22,160,133,0.08));
+  border:1px solid rgba(26,188,156,0.35);
+}
+.night-announce-card.expose{
+  background:linear-gradient(135deg,rgba(201,168,76,0.15),rgba(180,150,60,0.08));
+  border:1px solid rgba(201,168,76,0.35);
+}
+.night-announce-card.quiet{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.08);
+}
+.night-announce-card.recruit{
+  background:linear-gradient(135deg,rgba(192,57,43,0.18),rgba(155,89,182,0.1));
+  border:1px solid rgba(192,57,43,0.4);
+}
+@keyframes announceIn{
+  from{opacity:0;transform:translateY(12px) scale(0.96);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+.na-icon{font-size:2rem;flex-shrink:0;line-height:1;}
+.na-body{flex:1;}
+.na-title{font-size:1rem;font-weight:700;line-height:1.3;margin-bottom:3px;}
+.na-sub{font-size:0.78rem;opacity:0.75;line-height:1.5;}
+.night-result-divider{
+  display:flex;align-items:center;gap:8px;
+  font-size:0.65rem;color:var(--txt3);
+  letter-spacing:0.1em;text-transform:uppercase;
+  margin:4px 0;
+}
+.night-result-divider::before,.night-result-divider::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+/* ── 내 직업 배지 (하단 바 상시 표시) ── */
+.my-role-badge{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:3px 10px 3px 6px;
+  font-size:0.72rem;
+  flex-shrink:0;
+  cursor:default;
+}
+.my-role-badge .rb-emoji{font-size:0.9rem;line-height:1;}
+.my-role-badge .rb-name{font-weight:700;}
+.my-role-badge .rb-faction{opacity:0.6;font-size:0.65rem;}
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-logo">MAFIA</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- NICKNAME SETUP -->
+<div class="screen" id="sNickname">
+  <div class="nick-logo">MAFIA ONLINE</div>
+  <div class="nick-card">
+    <div class="field-label">닉네임</div>
+    <input class="text-input" id="nickInput" type="text" placeholder="닉네임을 입력하세요" maxlength="12">
+    <p class="nick-hint">다른 플레이어에게 표시될 이름입니다.</p>
+    <button class="btn btn-gold btn-full btn-lg" onclick="setNickname()">시작하기</button>
+  </div>
+</div>
+
+<!-- HOME -->
+<div class="screen" id="sHome">
+  <div class="home-logo">
+    <span class="logo-eyebrow">Online Multiplayer</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h1 class="logo-title">MAFIA</h1>
+      <span class="logo-rose">🌹</span>
+    </div>
+    <span class="logo-sub">어둠 속의 진실</span>
+  </div>
+  <div class="home-cards">
+    <div class="home-card" onclick="showScreen('sCreateRoom')">
+      <div class="home-card-icon">🏠</div>
+      <div class="home-card-title">방 만들기</div>
+      <div class="home-card-desc">새 게임룸을 만들고<br>친구를 초대하세요</div>
+    </div>
+    <div class="home-card" onclick="loadRoomList()">
+      <div class="home-card-icon">🔍</div>
+      <div class="home-card-title">방 찾기</div>
+      <div class="home-card-desc">공개 방 목록을<br>확인하세요</div>
+    </div>
+    <div class="home-card full" onclick="showJoinByCode()">
+      <div class="home-card-icon">🔑</div>
+      <div class="home-card-title">코드로 참가</div>
+      <div class="home-card-desc">방 코드를 입력해 바로 입장하세요</div>
+    </div>
+  </div>
+  <div class="win-conditions">
+    <div class="section-title" style="margin-bottom:10px;">승리 조건</div>
+    <div class="win-row"><span class="win-faction" style="color:var(--mafia)">👑 마피아</span>마피아 수 ≥ 나머지 생존자 (동수 포함)</div>
+    <div class="win-row"><span class="win-faction" style="color:var(--citizen)">🏅 시민</span>마피아 소속 직업 모두 제거</div>
+    <div class="win-row"><span class="win-faction" style="color:var(--neutral)">🧙 마녀</span>마피아·시민·중립 각 1명만 생존</div>
+  </div>
+</div>
+
+<!-- ROOM LIST -->
+<div class="screen" id="sRoomList" style="flex-direction:column;">
+  <div class="top-bar">
+    <button class="btn btn-ghost btn-sm" onclick="showScreen('sHome')">← 뒤로</button>
+    <span class="top-bar-title">공개 방 목록</span>
+    <button class="btn btn-outline btn-sm" onclick="loadRoomList()">🔄 새로고침</button>
+  </div>
+  <div class="room-list-body" id="roomListBody">
+    <div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">방 목록을 불러오는 중...</div></div>
+  </div>
+</div>
+
+<!-- CREATE ROOM -->
+<div class="screen" id="sCreateRoom" style="flex-direction:column;">
+  <div class="top-bar">
+    <button class="btn btn-ghost btn-sm" onclick="showScreen('sHome')">← 뒤로</button>
+    <span class="top-bar-title">방 만들기</span>
+  </div>
+  <div class="create-body">
+    <div class="field-label">방 이름</div>
+    <input class="text-input" id="roomNameInput" type="text" placeholder="방 이름을 입력하세요" maxlength="20">
+    <div class="field-label">인원 수</div>
+    <div class="pill-row" id="playerCountPills"></div>
+    <div class="field-label">역할 구성 미리보기</div>
+    <div class="role-preview" id="rolePreview"></div>
+    <div class="switch-row">
+      <span class="switch-label">🔒 비밀번호 잠금</span>
+      <button class="switch" id="lockSwitch" onclick="toggleLock(this)"></button>
+    </div>
+
+    <div id="lockPasswordRow" style="display:none;">
+      <div class="field-label">비밀번호</div>
+      <input class="text-input" id="roomPwInput" type="text" placeholder="방 비밀번호 (숫자·영문)" maxlength="8">
+    </div>
+    <button class="btn btn-gold btn-full btn-lg" onclick="createRoom()">방 만들기</button>
+  </div>
+</div>
+
+<!-- ROOM LOBBY -->
+<div class="screen" id="sRoomLobby" style="flex-direction:column;">
+  <div class="room-header">
+    <button class="btn btn-ghost btn-sm" onclick="leaveRoom()">← 나가기</button>
+    <span class="room-name-title" id="lobbyRoomName">방 이름</span>
+    <div class="room-code-box" onclick="copyRoomCode()">
+      <span id="lobbyCode">------</span>
+      <span style="font-size:0.8rem;">📋</span>
+    </div>
+
+  </div>
+  <!-- Unified player list -->
+  <div class="lobby-body" id="lobbyPlayerList"></div>
+  <div class="countdown-bar" id="lobbyCountdownBar" style="display:none;">
+    <div class="countdown-fill" id="lobbyCountdownFill" style="width:100%;"></div>
+  </div>
+  <div class="lobby-footer">
+    <div style="flex:1;">
+      <div id="lobbyStatusTxt" class="status-txt">플레이어를 기다리는 중...</div>
+      <div style="font-size:0.72rem;color:var(--txt3);margin-top:2px;" id="lobbyPlayerCount">0/0명</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" id="micToggleBtn" onclick="toggleMic()">🎙️ 마이크</button>
+      <button class="btn btn-gold" id="startGameBtn" onclick="requestStartGame()" style="display:none;">게임 시작</button>
+      <button class="btn btn-outline" id="readyBtn" onclick="toggleReady()">준비</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME — 모바일 세로 최적화 -->
+<div class="screen" id="sGame">
+
+  <!-- ① 상단 고정 헤더: 페이즈명 + 타이머 + 마이크 + 채팅 토글 -->
+  <div class="game-header">
+    <span class="game-phase" id="gamePhaseLabel">-</span>
+    <span class="game-timer" id="gameTimerDisplay">-</span>
+    <button class="game-header-mic" id="micBtn" onclick="toggleMic()">🎙️</button>
+    <button class="game-header-chat-btn" onclick="toggleChatDrawer()">
+      💬
+      <span class="chat-unread-dot" id="chatUnreadDot"></span>
+    </button>
+  </div>
+
+  <!-- ② 플레이어 가로 스트립 -->
+  <div class="player-strip" id="playerStrip"></div>
+
+  <!-- ③ 메인 영역 (페이즈 컨텐츠) -->
+  <div class="game-main">
+    <div class="phase-area" id="phaseArea"></div>
+
+    <!-- 채팅 오버레이 배경 -->
+    <div class="chat-overlay" id="chatOverlay" onclick="toggleChatDrawer()"></div>
+
+    <!-- 채팅 드로어 (하단 슬라이드업) -->
+    <div class="chat-drawer" id="chatDrawer">
+      <div class="chat-drawer-handle" onclick="toggleChatDrawer()"></div>
+      <div class="chat-header">
+        <span class="chat-title" id="chatTitle">💬 채팅</span>
+        <button class="chat-close-btn" onclick="toggleChatDrawer()">✕</button>
+      </div>
+      <div class="chat-msgs" id="chatMsgs"></div>
+      <div class="chat-input-row" id="chatInputRow">
+        <input class="chat-input" id="chatInput" type="text" placeholder="메시지 입력..." maxlength="60" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send-btn" onclick="sendChat()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 하단 상태 바: 음성상태 -->
+  <div class="game-bottom-bar">
+    <!-- 내 직업 배지 -->
+    <div class="my-role-badge" id="myRoleBadge" style="display:none;">
+      <span class="rb-emoji" id="myRoleEmoji">?</span>
+      <span class="rb-name" id="myRoleName">-</span>
+      <span class="rb-faction" id="myRoleFaction"></span>
+    </div>
+    <div class="voice-status" style="flex:1;">
+      <div class="voice-dot" id="voiceDot"></div>
+      <span id="voiceLabel">음성채팅 비활성</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- END SCREEN -->
+<div class="screen" id="sEnd" style="position:relative;overflow:hidden;">
+  <div class="end-glow" id="endGlow"></div>
+  <div class="end-title" id="endTitle"></div>
+  <div class="end-sub" id="endSub"></div>
+  <div class="end-players" id="endPlayers"></div>
+  <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+    <button class="btn btn-outline btn-lg" onclick="openGameLog()">📋 게임 로그</button>
+    <button class="btn btn-gold btn-lg" onclick="resetAndGoHome()">로비로 돌아가기</button>
+  </div>
+</div>
+
+<!-- MODAL: 게임 로그 -->
+<div class="modal-overlay hidden" id="gameLogModal">
+  <div class="modal" style="max-height:80vh;">
+    <div class="modal-hdr">
+      <span class="modal-title">📋 게임 로그</span>
+      <button class="modal-close" onclick="closeModal('gameLogModal')">✕</button>
+    </div>
+    <div class="modal-body" id="gameLogBody" style="gap:6px;"></div>
+  </div>
+</div>
+
+<!-- MODAL: Join by code -->
+<div class="modal-overlay hidden" id="joinCodeModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">방 코드로 참가</span>
+      <button class="modal-close" onclick="closeModal('joinCodeModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-label">방 코드 6자리</div>
+      <input class="text-input" id="joinCodeInput" type="text" placeholder="예: A1B2C3" maxlength="6" style="text-transform:uppercase;letter-spacing:0.2em;font-family:'Cinzel',serif;font-size:1.2rem;">
+      <button class="btn btn-gold btn-full" onclick="joinByCode()">참가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Room password -->
+<div class="modal-overlay hidden" id="roomPwModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">비밀번호 입력</span>
+      <button class="modal-close" onclick="closeModal('roomPwModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="text-input" id="roomPwEnterInput" type="text" placeholder="비밀번호를 입력하세요">
+      <button class="btn btn-gold btn-full" onclick="submitRoomPassword()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Help -->
+<div class="modal-overlay hidden" id="helpModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">직업 안내</span>
+      <button class="modal-close" onclick="closeModal('helpModal')">✕</button>
+    </div>
+    <div class="modal-body" id="helpModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL: Night result / private message -->
+<div class="modal-overlay hidden" id="nightResultModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">🌅 밤 결과</span>
+      <button class="modal-close" onclick="closeModal('nightResultModal')">✕</button>
+    </div>
+    <div class="modal-body" id="nightResultBody"></div>
+  </div>
+</div>
+
+<button class="help-btn" id="helpBtn" onclick="openHelp()" style="display:none;">?</button>
+
+<!-- 플레이어 메모 모달 -->
+<div class="memo-modal-overlay hidden" id="memoOverlay" onclick="closeMemoIfOutside(event)">
+  <div class="memo-modal" id="memoModal">
+    <div class="memo-modal-hdr">
+      <div class="memo-player-avatar" id="memoAvatar">?</div>
+      <div class="memo-player-name" id="memoPlayerName">플레이어</div>
+      <button class="memo-close" onclick="closeMemo()">✕</button>
+    </div>
+    <div class="memo-body">
+      <!-- 빠른 태그 -->
+      <div class="memo-tags" id="memoTags">
+        <button class="memo-tag" style="border-color:#e74c3c;color:#e74c3c;" onclick="toggleMemoTag(this,'🔴 마피아 의심')" data-tag="🔴 마피아 의심">🔴 마피아 의심</button>
+        <button class="memo-tag" style="border-color:#1abc9c;color:#1abc9c;" onclick="toggleMemoTag(this,'✅ 시민 확인')" data-tag="✅ 시민 확인">✅ 시민 확인</button>
+        <button class="memo-tag" style="border-color:#f39c12;color:#f39c12;" onclick="toggleMemoTag(this,'⚠️ 요주의')" data-tag="⚠️ 요주의">⚠️ 요주의</button>
+        <button class="memo-tag" style="border-color:#9b59b6;color:#9b59b6;" onclick="toggleMemoTag(this,'🔍 조사 대상')" data-tag="🔍 조사 대상">🔍 조사 대상</button>
+        <button class="memo-tag" style="border-color:#3498db;color:#3498db;" onclick="toggleMemoTag(this,'💬 발언 이상')" data-tag="💬 발언 이상">💬 발언 이상</button>
+      </div>
+      <textarea class="memo-textarea" id="memoTextarea" placeholder="이 플레이어에 대한 메모를 입력하세요..." maxlength="120" rows="3"></textarea>
+    </div>
+    <div class="memo-footer">
+      <button class="memo-clear-btn" onclick="clearMemo()">초기화</button>
+      <button class="memo-save-btn" onclick="saveMemo()">저장</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, get, push, onValue, off, update, remove, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FIREBASE CONFIG — Replace with your own Firebase project config
+// ──────────────────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBInFGQiYVWmVpV-GBggMmqWO3r3RWlZZM",
+  authDomain: "mafia-online-fe9a9.firebaseapp.com",
+  databaseURL: "https://mafia-online-fe9a9-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mafia-online-fe9a9",
+  storageBucket: "mafia-online-fe9a9.firebasestorage.app",
+  messagingSenderId: "551550790375",
+  appId: "1:551550790375:web:daa94730bffc822ad79042",
+  measurementId: "G-H0R4CEYMCC"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ──────────────────────────────────────────────────────────────────────────────
+// GAME CONSTANTS
+// ──────────────────────────────────────────────────────────────────────────────
+const ROLES = {
+  GODFATHER:  {id:"GODFATHER",  name:"대부",       faction:"mafia",   emoji:"👑"},
+  MAFIA:      {id:"MAFIA",      name:"마피아 일원", faction:"mafia",   emoji:"🔫"},
+  PROSTITUTE: {id:"PROSTITUTE", name:"창부",        faction:"mafia",   emoji:"💋"},
+  POLICE:     {id:"POLICE",     name:"경찰",        faction:"citizen", emoji:"🔍"},
+  DOCTOR:     {id:"DOCTOR",     name:"의사",        faction:"citizen", emoji:"💉"},
+  HUNTER:     {id:"HUNTER",     name:"사냥꾼",      faction:"citizen", emoji:"🏹"},
+  PARASITE:   {id:"PARASITE",   name:"기생",        faction:"citizen", emoji:"🪱"},
+  VETERAN:    {id:"VETERAN",    name:"퇴역군인",    faction:"citizen", emoji:"🎖️"},
+  WITCH:      {id:"WITCH",      name:"마녀",        faction:"neutral", emoji:"🧙"},
+  JOURNALIST: {id:"JOURNALIST", name:"기자",        faction:"citizen", emoji:"📰"},
+  BUSDRIVER:  {id:"BUSDRIVER",  name:"버스기사",    faction:"citizen", emoji:"🚌"},
+};
+const ROLE_DESC = {
+  GODFATHER:"매 밤 1명을 제거합니다.\n기생 선택 시 창부로 영입합니다.",
+  MAFIA:"매 밤 1명의 직업을 알 수 있습니다.\n(대부 추방 시 대부능력 승계)",
+  PROSTITUTE:"매 밤 1명의 능력을 무효화합니다.\n(마피아 소속)",
+  POLICE:"매 밤 1명을 조사합니다.\n마피아 소속 여부만 확인 가능합니다.",
+  DOCTOR:"매 밤 1명(자신 포함)을 살립니다.",
+  HUNTER:"매 밤 1명이 누구에게 능력을\n사용했는지 추적합니다.",
+  PARASITE:"매 밤 1명의 능력을 무효화합니다.\n(마녀는 무효화 불가)",
+  VETERAN:"2번째 밤에만 1명을 사살합니다.\n(대부는 사살 불가)",
+  WITCH:"매 밤 A의 능력을 B에게 사용하게 만듭니다.\n(버스기사는 적용X)",
+  JOURNALIST:"단 1번, 선택한 플레이어의 직업을 모두에게 공개합니다.\n(대부 선택 시 보도 중지)",
+  BUSDRIVER:"매 밤 두 플레이어를 선택해 서로의 위치를 바꿉니다.",
+};
+const FN = {mafia:"마피아",citizen:"시민",neutral:"중립"};
+const FC = {mafia:"#e74c3c",citizen:"#1abc9c",neutral:"#9b59b6"};
+const MAFIA_IDS = ["GODFATHER","MAFIA","PROSTITUTE"];
+
+function getRoleSet(n){
+  if(n===10) return [ROLES.GODFATHER,ROLES.MAFIA,ROLES.PARASITE,ROLES.POLICE,ROLES.DOCTOR,ROLES.HUNTER,ROLES.VETERAN,ROLES.WITCH,ROLES.BUSDRIVER,ROLES.JOURNALIST];
+  if(n===9)  return [ROLES.GODFATHER,ROLES.MAFIA,ROLES.PARASITE,ROLES.POLICE,ROLES.DOCTOR,ROLES.HUNTER,ROLES.VETERAN,ROLES.WITCH,ROLES.BUSDRIVER];
+  if(n===8)  return [ROLES.GODFATHER,ROLES.MAFIA,ROLES.BUSDRIVER,ROLES.POLICE,ROLES.DOCTOR,ROLES.HUNTER,ROLES.VETERAN,ROLES.WITCH];
+  if(n===7)  return [ROLES.GODFATHER,ROLES.PARASITE,ROLES.POLICE,ROLES.DOCTOR,ROLES.BUSDRIVER,ROLES.VETERAN,ROLES.WITCH];
+  if(n===6)  return [ROLES.GODFATHER,ROLES.PARASITE,ROLES.POLICE,ROLES.DOCTOR,ROLES.BUSDRIVER,ROLES.WITCH];
+  if(n===5)  return [ROLES.GODFATHER,ROLES.BUSDRIVER,ROLES.POLICE,ROLES.DOCTOR,ROLES.WITCH];
+  return      [ROLES.GODFATHER,ROLES.BUSDRIVER,ROLES.POLICE,ROLES.DOCTOR];
+}
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+function genId(){return Math.random().toString(36).slice(2,10);}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────────────────────────────────────
+let myId = localStorage.getItem('mafiaMyId') || genId();
+localStorage.setItem('mafiaMyId', myId);
+let myNick = localStorage.getItem('mafiaMyNick') || '';
+let currentRoomId = null;
+let currentRoomData = null;
+let roomListener = null;
+let chatListener = null;
+let nightActionsListener = null;
+let gameTimerInterval = null;
+let myRole = null;
+let gameState = null; // full game state (host manages)
+let isHost = false;
+let selectedTarget = null;
+let witchStep = 1, witchSrc = null;
+let nightActionDone = false;
+let pendingJoinRoomId = null;
+let myReady = false;
+let createPlayerCount = 6;
+
+// WebRTC Voice Chat state
+let localStream = null;
+let peerConnections = {}; // peerId -> RTCPeerConnection
+let isMicOn = false;
+let signalingListener = null;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// WebRTC ICE/TURN 서버 설정
+// Open Relay Project: 무료, 가입 불필요 (https://www.metered.ca/tools/openrelay)
+// ──────────────────────────────────────────────────────────────────────────────
+const ICE_SERVERS = {
+  iceServers: [
+      {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+  ],
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 사회자 TTS
+// ──────────────────────────────────────────────────────────────────────────────
+let _ttsQueue = [];
+let _ttsBusy = false;
+
+function speak(text){
+  if(!window.speechSynthesis) return;
+  _ttsQueue.push(text);
+  _drainTTS();
+}
+
+function _drainTTS(){
+  if(_ttsBusy || _ttsQueue.length===0) return;
+  _ttsBusy = true;
+  const text = _ttsQueue.shift();
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = 0.92;
+  u.pitch = 1.0;
+  // 한국어 음성 선택
+  const voices = window.speechSynthesis.getVoices();
+  const ko = voices.find(v=>v.lang==='ko-KR'||v.lang==='ko_KR');
+  if(ko) u.voice = ko;
+  u.onend = ()=>{ _ttsBusy=false; _drainTTS(); };
+  u.onerror = ()=>{ _ttsBusy=false; _drainTTS(); };
+  window.speechSynthesis.speak(u);
+}
+
+// 음성이 로드되기 전에 목록이 비어있을 수 있으므로 이벤트 대기
+if(window.speechSynthesis){
+  window.speechSynthesis.addEventListener('voiceschanged', ()=>{});
+}
+
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SCREEN MANAGEMENT
+// ──────────────────────────────────────────────────────────────────────────────
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  const el = document.getElementById(id);
+  if(el){ el.classList.add('active'); el.style.display='flex'; }
+  // ? 버튼: 메인화면(sHome)·닉네임·방목록 에서는 숨김, 나머지에서는 표시
+  const helpBtn = document.getElementById('helpBtn');
+  if(helpBtn){
+    const hideOn = ['sHome','sNickname','sRoomList','sEnd'];
+    helpBtn.style.display = hideOn.includes(id) ? 'none' : 'flex';
+  }
+}
+window.showScreen = showScreen;
+
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+window.closeModal = closeModal;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────────────────────────────
+async function init(){
+  await new Promise(r=>setTimeout(r,800));
+  document.getElementById('loadingOverlay').style.display='none';
+  // 항상 닉네임 화면 먼저 표시 (재접속 시 새로 입력)
+  // 이전 닉네임이 있으면 input에 미리 채워줌
+  const nickInput = document.getElementById('nickInput');
+  if(nickInput && myNick) nickInput.value = myNick;
+  showScreen('sNickname');
+  buildCreateRoomUI();
+  // 앱 시작 시 고아 방 정리
+  cleanupGhostRooms();
+}
+
+window.setNickname = function(){
+  const v = document.getElementById('nickInput').value.trim();
+  if(!v){ toast('닉네임을 입력해주세요','error'); return; }
+  myNick = v;
+  localStorage.setItem('mafiaMyNick',myNick);
+  showScreen('sHome');
+  buildCreateRoomUI();
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CREATE ROOM UI
+// ──────────────────────────────────────────────────────────────────────────────
+function buildCreateRoomUI(){
+  const pills = document.getElementById('playerCountPills');
+  if(!pills) return;
+  pills.innerHTML = [4,5,6,7,8,9,10].map(n=>
+    `<button class="pill${n===createPlayerCount?' active':''}" onclick="setCreateCount(${n})">${n}명</button>`
+  ).join('');
+  updateRolePreview();
+}
+window.buildCreateRoomUI = buildCreateRoomUI;
+
+window.setCreateCount = function(n){
+  createPlayerCount = n;
+  buildCreateRoomUI();
+  // 직업 안내 모달이 열려있으면 내용 실시간 갱신
+  const modal = document.getElementById('helpModal');
+  if(modal && !modal.classList.contains('hidden')) openHelp();
+};
+
+function updateRolePreview(){
+  const roles = getRoleSet(createPlayerCount);
+  const preview = document.getElementById('rolePreview');
+  if(!preview) return;
+  preview.innerHTML = roles.map(r=>
+    `<div class="role-tag" style="border-color:${FC[r.faction]};color:${FC[r.faction]}">${r.emoji} ${r.name}</div>`
+  ).join('');
+}
+
+let lockOn = false;
+window.toggleLock = function(btn){
+  lockOn = !lockOn;
+  btn.className = 'switch' + (lockOn?' on':'');
+  document.getElementById('lockPasswordRow').style.display = lockOn?'':'none';
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ROOM LIST
+// ──────────────────────────────────────────────────────────────────────────────
+window.loadRoomList = async function(){
+  showScreen('sRoomList');
+  const body = document.getElementById('roomListBody');
+  body.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">불러오는 중...</div></div>';
+  try {
+    const snap = await get(ref(db,'rooms'));
+    if(!snap.exists()){
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏜️</div><div class="empty-text">공개 방이 없습니다</div></div>';
+      return;
+    }
+    const rooms = snap.val();
+    const items = Object.entries(rooms).filter(([id,r])=>!r.password && r.status==='waiting' && Object.keys(r.players||{}).length > 0 && Object.keys(r.players||{}).length < r.maxPlayers);
+    if(!items.length){
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏜️</div><div class="empty-text">참가 가능한 방이 없습니다</div></div>';
+      return;
+    }
+    body.innerHTML = items.map(([id,r])=>{
+      const cnt = Object.keys(r.players||{}).length;
+      return `<div class="room-item" onclick="joinRoom('${id}')">
+        <div class="room-item-name">${esc(r.name)}</div>
+        <div class="room-item-count">${cnt}/${r.maxPlayers}명</div>
+        <div class="room-item-status status-waiting">대기 중</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    console.error('loadRoomList error:', e);
+    const isPermission = e.message?.includes('permission') || e.code === 'PERMISSION_DENIED';
+    body.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-text">${isPermission
+        ? 'Firebase 규칙 오류<br><span style="font-size:0.72rem;color:var(--txt3);">rules에서 rooms에 .read:true 추가 필요</span>'
+        : '불러오기 실패: ' + esc(e.message||'알 수 없는 오류')}</div>
+    </div>`;
+  }
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CREATE ROOM
+// ──────────────────────────────────────────────────────────────────────────────
+window.createRoom = async function(){
+  const name = document.getElementById('roomNameInput').value.trim() || `${myNick}의 방`;
+  const pw = lockOn ? document.getElementById('roomPwInput').value.trim() : null;
+  const code = genCode();
+  const roomId = genId();
+  const roles = getRoleSet(createPlayerCount);
+  const mafiaCount = roles.filter(r=>r.faction==='mafia').length;
+  const citizenCount = roles.filter(r=>r.faction!=='mafia').length;
+  const roomData = {
+    name, code, maxPlayers: createPlayerCount,
+    password: pw||null, status:'waiting',
+    hostId: myId,
+    createdAt: Date.now(),
+    players:{
+      [myId]:{ id:myId, nick:myNick, ready:false, alive:true, joinedAt:Date.now() }
+    },
+    mafiaCount, citizenCount,
+    chat:{},
+    signaling:{}
+  };
+  try {
+    await set(ref(db,`rooms/${roomId}`), roomData);
+    await joinRoom(roomId);
+  } catch(e){
+    console.error('createRoom error:', e);
+    const isPermission = e.message?.includes('permission') || e.code === 'PERMISSION_DENIED';
+    toast(isPermission
+      ? 'Firebase 규칙 오류 — rules에서 rooms에 .write:true를 추가하세요'
+      : '방 만들기 실패: ' + (e.message||'알 수 없는 오류'), 'error');
+  }
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// JOIN ROOM
+// ──────────────────────────────────────────────────────────────────────────────
+window.showJoinByCode = function(){
+  document.getElementById('joinCodeModal').classList.remove('hidden');
+};
+
+window.joinByCode = async function(){
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if(code.length!==6){ toast('6자리 코드를 입력하세요','error'); return; }
+  try {
+    const snap = await get(ref(db,'rooms'));
+    if(!snap.exists()){ toast('현재 열린 방이 없습니다','info'); return; }
+    const rooms = snap.val();
+    const entry = Object.entries(rooms).find(([id,r])=>r.code===code);
+    if(!entry){ toast('해당 코드의 방이 없습니다. 코드를 다시 확인하세요','error'); return; }
+    closeModal('joinCodeModal');
+    await joinRoom(entry[0]);
+  } catch(e){
+    console.error('joinByCode error:', e);
+    const isPermission = e.message?.includes('permission') || e.code === 'PERMISSION_DENIED';
+    toast(isPermission
+      ? 'Firebase 규칙 오류 — rules에서 rooms에 .read:true를 추가하세요'
+      : '참가 실패: ' + (e.message||'알 수 없는 오류'), 'error');
+  }
+};
+
+window.joinRoom = async function(roomId){
+  try {
+    const snap = await get(ref(db,`rooms/${roomId}`));
+    if(!snap.exists()){ toast('방이 없거나 삭제되었습니다','error'); return; }
+    const room = snap.val();
+    if(room.status!=='waiting'){ toast('이미 게임이 진행 중인 방입니다','error'); return; }
+    const humanPlayers = Object.keys(room.players||{}).length;
+    const aiCnt = room.aiCount||0;
+    const totalFilled = humanPlayers + aiCnt;
+    if(totalFilled >= room.maxPlayers && !room.players?.[myId]){ toast('방이 꽉 찼습니다','error'); return; }
+    if(room.password && !room.players?.[myId]){
+      pendingJoinRoomId = roomId;
+      document.getElementById('roomPwModal').classList.remove('hidden');
+      return;
+    }
+    await _doJoinRoom(roomId);
+  } catch(e){
+    console.error('joinRoom error:', e);
+    const isPermission = e.message?.includes('permission') || e.code === 'PERMISSION_DENIED';
+    toast(isPermission
+      ? 'Firebase 규칙 오류 — 방에 접근할 권한이 없습니다'
+      : '참가 실패: ' + (e.message||'알 수 없는 오류'), 'error');
+  }
+};
+
+window.submitRoomPassword = async function(){
+  const pw = document.getElementById('roomPwEnterInput').value.trim();
+  const snap = await get(ref(db,`rooms/${pendingJoinRoomId}/password`));
+  if(snap.val()!==pw){ toast('비밀번호가 틀렸습니다','error'); return; }
+  closeModal('roomPwModal');
+  await _doJoinRoom(pendingJoinRoomId);
+};
+
+async function _doJoinRoom(roomId){
+  try {
+    currentRoomId = roomId;
+    await update(ref(db,`rooms/${roomId}/players/${myId}`),{
+      id:myId, nick:myNick, ready:false, alive:true, joinedAt:Date.now()
+    });
+    // On disconnect: remove from room
+    onDisconnect(ref(db,`rooms/${roomId}/players/${myId}`)).remove();
+    listenRoom(roomId);
+    showScreen('sRoomLobby');
+    // 화면 전환 후 마이크 초기화 (딜레이로 중복 트리거 방지)
+    setTimeout(()=>initLobbyMic(), 300);
+  } catch(e){
+    console.error('_doJoinRoom error:', e);
+    currentRoomId = null;
+    const isPermission = e.message?.includes('permission') || e.code === 'PERMISSION_DENIED';
+    toast(isPermission
+      ? 'Firebase 규칙 오류 — 방에 쓰기 권한이 없습니다. rules를 확인하세요'
+      : '입장 실패: ' + (e.message||'알 수 없는 오류'), 'error');
+  }
+}
+
+let _micInitPending = false; // 중복 호출 방지 플래그
+
+async function initLobbyMic(){
+  if(localStream) {
+    // 마이크는 이미 켜져있지만 시그널링/P2P 연결이 없을 수 있음
+    await ensureVoiceConnected();
+    return;
+  }
+  if(_micInitPending) return;
+  _micInitPending = true;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true },
+      video:false
+    });
+    isMicOn = true;
+    updateMicUI();
+    await ensureVoiceConnected();
+    toast('🎙️ 마이크가 활성화되었습니다','success');
+  } catch(e){
+    // 권한 거부 시 딱 한 번만 안내
+    toast('마이크 권한을 허용해주세요. 로비 버튼으로 재시도할 수 있습니다.','error');
+  } finally {
+    _micInitPending = false;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ROOM LISTENER
+// ──────────────────────────────────────────────────────────────────────────────
+function listenRoom(roomId){
+  if(roomListener){ off(ref(db,`rooms/${currentRoomId}`), 'value', roomListener); }
+  roomListener = onValue(ref(db,`rooms/${roomId}`), async snap=>{
+    if(!snap.exists()){
+      toast('방이 삭제되었습니다','error');
+      showScreen('sHome');
+      currentRoomId = null;
+      return;
+    }
+    const room = snap.val();
+
+    // 플레이어가 아무도 없으면 방 자동 삭제
+    const humanPlayers = Object.keys(room.players||{});
+    if(humanPlayers.length === 0 && room.status !== 'playing'){
+      await remove(ref(db,`rooms/${roomId}`));
+      return;
+    }
+
+    currentRoomData = room;
+    isHost = room.hostId === myId;
+    handleRoomUpdate(room);
+    // 로비/게임 중 새 플레이어 입장 시 음성 연결 보장
+    if(localStream) await ensureVoiceConnected();
+  });
+  // Chat listener
+  if(chatListener){ off(ref(db,`rooms/${currentRoomId}/chat`), 'value', chatListener); }
+  chatListener = onValue(ref(db,`rooms/${roomId}/chat`), snap=>{
+    if(snap.exists()) renderChat(snap.val());
+  });
+}
+
+function handleRoomUpdate(room){
+  // isHost 항상 최신화 (방장 사망 후에도 호스트 권한은 유지됨)
+  isHost = room.hostId === myId;
+
+  const screen = document.querySelector('.screen.active')?.id;
+  if(room.status === 'playing' && screen !== 'sGame'){
+    enterGame(room);
+    return;
+  }
+  if(room.status === 'ended' && screen === 'sGame'){
+    showEndScreen(room.endResult);
+    return;
+  }
+  if(screen === 'sRoomLobby') renderLobby(room);
+  if(screen === 'sGame') updateGameFromRoom(room);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// LOBBY RENDER  (unified list + AI controls)
+// ──────────────────────────────────────────────────────────────────────────────
+let aiCount = 0; // number of AI players the host has added
+
+function renderLobby(room){
+  document.getElementById('lobbyRoomName').textContent = room.name;
+  document.getElementById('lobbyCode').textContent = room.code;
+
+  const humanPlayers = Object.values(room.players||{});
+  const storedAi = room.aiCount||0;
+  if(isHost && aiCount !== storedAi) aiCount = storedAi; // sync from DB
+
+  const totalFilled = humanPlayers.length + aiCount;
+  const maxP = room.maxPlayers;
+  const emptySlots = Math.max(0, maxP - totalFilled);
+
+  const listEl = document.getElementById('lobbyPlayerList');
+  let html = '';
+
+  // Section: players
+  html += `<div class="lobby-section-label">참가자 ${totalFilled}/${maxP}</div>`;
+
+  // Real players
+  humanPlayers.forEach(p=>{
+    const isMe = p.id===myId;
+    const isH  = p.id===room.hostId;
+    html += `<div class="player-slot${isMe?' me':''}">
+      <div class="player-avatar">${(p.nick||'?')[0]}</div>
+      <div class="player-name">${esc(p.nick)}${isMe?' <span style="font-size:0.63rem;color:var(--txt3)">(나)</span>':''}</div>
+      ${isH?'<span class="player-host">방장</span>':''}
+      ${(!isH&&p.ready)?'<span style="font-size:0.63rem;color:var(--teal);font-weight:700">✓ 준비</span>':''}
+    </div>`;
+  });
+
+  // AI player slots (visual)
+  for(let i=0;i<aiCount;i++){
+    html += `<div class="player-slot ai-slot">
+      <div class="player-avatar ai-av">🤖</div>
+      <div class="player-name" style="color:#b07de0;">AI 플레이어 ${i+1}</div>
+      <span class="ai-badge">AI</span>
+    </div>`;
+  }
+
+  // Empty slots
+  for(let i=0;i<emptySlots;i++){
+    html += `<div class="player-slot empty-slot">
+      <div class="player-avatar" style="opacity:0.3;">?</div>
+      <div class="player-name" style="color:var(--txt3);font-weight:400;">빈 자리</div>
+    </div>`;
+  }
+
+  // AI controls (host only)
+  if(isHost){
+    html += `<div class="lobby-section-label" style="margin-top:8px;">AI 플레이어 설정</div>
+    <div class="ai-controls">
+      <span class="ai-ctrl-label">🤖 AI 플레이어 수</span>
+      <button class="ai-count-btn" onclick="changeAiCount(-1)" ${aiCount<=0?'disabled':''}>−</button>
+      <span class="ai-count-num">${aiCount}</span>
+      <button class="ai-count-btn" onclick="changeAiCount(1)" ${totalFilled>=maxP?'disabled':''}>+</button>
+    </div>
+    <div style="font-size:0.72rem;color:var(--txt3);padding:0 2px;">AI는 빈 자리를 자동으로 채웁니다. 게임 시작 시 부족한 인원에 대해 AI가 행동합니다.</div>`;
+  }
+
+  listEl.innerHTML = html;
+
+  // Footer
+  document.getElementById('lobbyPlayerCount').textContent = `${totalFilled}/${maxP}명`;
+  const allHumanReady = humanPlayers.every(p=>p.id===room.hostId||p.ready);
+  const full = totalFilled >= maxP;
+
+  if(isHost){
+    document.getElementById('startGameBtn').style.display='';
+    document.getElementById('startGameBtn').disabled = !(full && allHumanReady);
+    document.getElementById('readyBtn').style.display='none';
+  } else {
+    document.getElementById('startGameBtn').style.display='none';
+    document.getElementById('readyBtn').style.display='';
+    document.getElementById('readyBtn').className = myReady?'btn btn-gold':'btn btn-outline';
+    document.getElementById('readyBtn').textContent = myReady?'✓ 준비완료':'준비';
+  }
+
+  if(full&&allHumanReady&&isHost){
+    document.getElementById('lobbyStatusTxt').textContent='🟢 게임 시작 가능!';
+  } else if(!full){
+    document.getElementById('lobbyStatusTxt').textContent=`플레이어/AI를 기다리는 중... (${totalFilled}/${maxP})`;
+  } else {
+    const notReady = humanPlayers.filter(p=>p.id!==room.hostId&&!p.ready).length;
+    document.getElementById('lobbyStatusTxt').textContent=`${notReady}명 준비 중...`;
+  }
+}
+
+window.changeAiCount = async function(delta){
+  if(!isHost||!currentRoomId) return;
+  const room = currentRoomData;
+  const humanCount = Object.keys(room.players||{}).length;
+  const newAi = Math.max(0, Math.min(room.maxPlayers - humanCount, aiCount + delta));
+  aiCount = newAi;
+  await update(ref(db,`rooms/${currentRoomId}`),{aiCount:newAi});
+};
+
+window.copyRoomCode = function(){
+  const code = currentRoomData?.code;
+  if(code){ navigator.clipboard.writeText(code).then(()=>toast('방 코드 복사됨: '+code,'info')); }
+};
+
+window.toggleReady = async function(){
+  myReady = !myReady;
+  await update(ref(db,`rooms/${currentRoomId}/players/${myId}`),{ready:myReady});
+};
+
+// 고아 방 정리 (앱 시작 시 한 번 실행)
+async function cleanupGhostRooms(){
+  try {
+    const snap = await get(ref(db,'rooms'));
+    if(!snap.exists()) return;
+    const rooms = snap.val();
+    const now = Date.now();
+    for(const [roomId, room] of Object.entries(rooms)){
+      const players = Object.keys(room.players||{});
+      const age = now - (room.createdAt||now);
+      // 플레이어 0명이거나 24시간 이상 된 방 삭제
+      if(players.length === 0 || (room.status==='waiting' && age > 86400000)){
+        await remove(ref(db,`rooms/${roomId}`));
+      }
+    }
+  } catch(e){ /* 권한 없으면 무시 */ }
+}
+
+window.leaveRoom = async function(){
+  if(currentRoomId){
+    await remove(ref(db,`rooms/${currentRoomId}/players/${myId}`));
+    if(isHost){
+      // Transfer host or delete room
+      const snap = await get(ref(db,`rooms/${currentRoomId}/players`));
+      if(snap.exists()){
+        const others = Object.keys(snap.val()).filter(id=>id!==myId);
+        if(others.length) await update(ref(db,`rooms/${currentRoomId}`),{hostId:others[0]});
+        else await remove(ref(db,`rooms/${currentRoomId}`));
+      } else await remove(ref(db,`rooms/${currentRoomId}`));
+    }
+    stopVoiceChat();
+  }
+  currentRoomId = null; currentRoomData = null; myRole = null; gameState = null;
+  // 메모·채팅 로그 초기화
+  Object.keys(playerMemos).forEach(k=>delete playerMemos[k]);
+  _lastChatCount = 0;
+  const chatEl = document.getElementById('chatMsgs');
+  if(chatEl) chatEl.innerHTML = '';
+  showScreen('sHome');
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// START GAME (host only)
+// ──────────────────────────────────────────────────────────────────────────────
+window.requestStartGame = async function(){
+  if(!isHost){ return; }
+  const room = currentRoomData;
+  const humanPlayers = Object.values(room.players||{});
+  const aiCnt = room.aiCount||0;
+  const totalNeeded = room.maxPlayers;
+  const totalFilled = humanPlayers.length + aiCnt;
+  if(totalFilled < totalNeeded){ toast(`인원이 부족합니다 (${totalFilled}/${totalNeeded})`,'error'); return; }
+
+  // Build full player list: real + AI
+  const allPlayers = [...humanPlayers];
+  for(let i=0;i<aiCnt;i++){
+    allPlayers.push({id:`ai_${i}`, nick:`AI ${i+1}`, isAI:true, ready:true, alive:true, joinedAt:Date.now()});
+  }
+
+  // Assign roles (shuffle)
+  const roles = shuffle(getRoleSet(totalNeeded));
+  const playersWithRoles = {};
+  allPlayers.forEach((p,i)=>{
+    playersWithRoles[p.id] = {...p, roleId:roles[i].id, alive:true, journalistUsed:false};
+  });
+
+  const gs = {
+    turn:1,
+    phase:'roleReveal',
+    players:playersWithRoles,
+    votes:{},
+    nightActions:{},
+    publicMsgs:[],
+    privateMsgs:{},
+    nightQueue:[],
+    nightQueueIdx:0,
+    phaseStartTime: Date.now(),
+    phaseEndTime: Date.now()+15000,
+  };
+  await update(ref(db,`rooms/${currentRoomId}`),{
+    status:'playing',
+    gameState: gs
+  });
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ENTER GAME
+// ──────────────────────────────────────────────────────────────────────────────
+function enterGame(room){
+  showScreen('sGame');
+  gameState = room.gameState;
+  myRole = gameState.players[myId];
+  renderGameSidebar();
+  renderGamePhase();
+  updateMyRoleBadge();
+  startVoiceChat(room);
+  listenNightActions();
+  speak('게임이 시작되었습니다. 각 플레이어는 자신의 직업을 확인하세요.');
+}
+
+function updateGameFromRoom(room){
+  if(!room.gameState) return;
+  const prevPhase = gameState?.phase;
+  gameState = room.gameState;
+  myRole = gameState.players[myId];
+  renderPlayerStrip();
+  updateMyRoleBadge();
+  if(prevPhase !== gameState.phase || !prevPhase){
+    nightActionDone = false;
+    selectedTarget = null;
+    witchStep=1; witchSrc=null;
+    renderGamePhase();
+  } else {
+    // Same phase — live update day vote summary
+    if(gameState.phase==='day') renderDayVoteSummary();
+    if(gameState.phase==='vote') renderVotePhase(document.getElementById('phaseArea'));
+    if(gameState.phase==='night') renderNightPhase(document.getElementById('phaseArea'));
+  }
+  updateVoiceChannelAccess();
+}
+
+
+// 내 직업 배지 갱신
+function updateMyRoleBadge(){
+  const badge = document.getElementById('myRoleBadge');
+  if(!badge) return;
+  if(!myRole || !myRole.roleId){ badge.style.display='none'; return; }
+  const role = ROLES[myRole.roleId];
+  if(!role){ badge.style.display='none'; return; }
+  document.getElementById('myRoleEmoji').textContent  = role.emoji;
+  document.getElementById('myRoleName').textContent   = role.name;
+  document.getElementById('myRoleFaction').textContent = FN[role.faction]||'';
+  badge.style.borderColor = FC[role.faction]||'var(--border)';
+  document.getElementById('myRoleName').style.color   = FC[role.faction]||'var(--txt)';
+  badge.style.display = 'flex';
+}
+function renderGameSidebar(){
+  if(!gameState) return;
+  renderPlayerStrip();
+}
+
+function renderPlayerStrip(){
+  if(!gameState) return;
+  const players = Object.values(gameState.players);
+  const strip = document.getElementById('playerStrip');
+  if(!strip) return;
+  const votes = gameState.votes||{};
+  const phase = gameState.phase;
+  const isMafiaMe = myRole && MAFIA_IDS.includes(myRole.roleId);
+
+  strip.innerHTML = players.map(p=>{
+    const isMe = p.id===myId;
+    const voteCount = Object.values(votes).filter(v=>v===p.id).length;
+    const iVoted = votes[myId]===p.id;
+    const isMafiaTeam = isMafiaMe && MAFIA_IDS.includes(p.roleId) && p.id!==myId;
+    let extraTag = '';
+    if(!p.alive) extraTag = '<div class="ps-dead-tag">💀</div>';
+    else if(phase==='vote' && voteCount>0) extraTag = `<div class="ps-votes">▲${voteCount}</div>`;
+    else if(isMafiaTeam) extraTag = `<div class="ps-role-tag">${ROLES[p.roleId]?.name||''}</div>`;
+    const hasMemo = playerMemos[p.id] && (playerMemos[p.id].text || playerMemos[p.id].tags?.length);
+    return `<div class="ps-item${!p.alive?' dead':''} ${isMe?'ps-me':''}" onclick="clickPlayer('${p.id}')" style="position:relative;">
+      <div class="ps-avatar${iVoted?' my-target':voteCount>0?' voted-target':''}">${(p.nick||'?')[0]}${hasMemo?'<div class="ps-memo-dot"></div>':''}</div>
+      <div class="ps-name">${esc(p.nick)}${isMe?' ·나':''}</div>
+      ${extraTag}
+    </div>`;
+  }).join('');
+}
+
+function renderGamePhase(){
+  if(!gameState) return;
+  clearInterval(gameTimerInterval);
+  const phase = gameState.phase;
+  const phaseLabel = document.getElementById('gamePhaseLabel');
+  // Chat visibility
+  const isMafiaNight = phase==='night' && myRole && MAFIA_IDS.includes(myRole.roleId);
+  const isMafiaRole = myRole && MAFIA_IDS.includes(myRole.roleId);
+  const isAlive = myRole && myRole.alive;
+
+  // update header label
+  const labels = {roleReveal:'직업 확인',day:'낮 토론',vote:'투표 시간',voteResult:'투표 결과',night:'밤 시간',nightResult:'밤 결과',ended:'게임 종료'};
+  phaseLabel.textContent = (labels[phase]||phase) + (gameState.turn? ` — ${gameState.turn}번째`:'');
+
+  // Chat drawer title + input visibility
+  const chatInputRow = document.getElementById('chatInputRow');
+  if(phase==='night'){
+    if(isMafiaRole&&isAlive){
+      document.getElementById('chatTitle').textContent = '🔴 마피아 전용 채팅';
+      if(chatInputRow) chatInputRow.style.display = 'flex';
+    } else if(!isAlive){
+      document.getElementById('chatTitle').textContent = '👻 사망자 채팅';
+      if(chatInputRow) chatInputRow.style.display = 'flex';
+    } else {
+      document.getElementById('chatTitle').textContent = '🔇 밤 — 채팅 제한';
+      if(chatInputRow) chatInputRow.style.display = 'none';
+    }
+  } else if(phase==='day'||phase==='vote'){
+    document.getElementById('chatTitle').textContent = isAlive ? '💬 채팅' : '👻 사망자 채팅';
+    if(chatInputRow) chatInputRow.style.display = 'flex'; // 사망자도 채팅 가능
+  } else {
+    document.getElementById('chatTitle').textContent = '💬 채팅';
+    if(chatInputRow) chatInputRow.style.display = isAlive ? 'none' : 'flex'; // 사망자는 항상 채팅 가능
+  }
+  // Close chat drawer on phase change
+  if(chatOpen){ chatOpen=false; const d=document.getElementById('chatDrawer'); const o=document.getElementById('chatOverlay'); if(d) d.classList.remove('open'); if(o) o.classList.remove('visible'); }
+
+  const area = document.getElementById('phaseArea');
+  area.className = 'phase-area' + (phase==='night'||phase==='roleReveal'?' night-bg':phase==='day'||phase==='vote'||phase==='voteResult'?' day-bg':'');
+
+  // 페이즈 진입 시 사회자 TTS 안내
+  switch(phase){
+    case 'roleReveal':
+      speak('직업을 확인하세요. 자신의 직업과 팀원을 잘 기억해두세요.');
+      renderRoleRevealPhase(area); break;
+    case 'day':
+      speak(`${gameState.turn||1}번째 낮이 밝았습니다. 2분 30초 동안 자유롭게 토론하세요.`);
+      renderDayPhase(area); break;
+    case 'vote':
+      speak('투표 시간입니다. 마피아로 의심되는 플레이어를 선택하세요.');
+      renderVotePhase(area); break;
+    case 'voteResult':
+      renderVoteResultPhase(area);
+      // voteResult TTS는 결과 내용에 따라 동적으로 처리
+      _announceVoteResult();
+      break;
+    case 'night':
+      speak(`${gameState.turn||1}번째 밤이 되었습니다. 각자 조용히 능력을 사용하세요.`);
+      renderNightPhase(area); break;
+    case 'nightResult':
+      renderNightResultPhase(area);
+      _announceNightResult();
+      break;
+    case 'ended': break;
+  }
+  // Timer
+  if(gameState.phaseEndTime){
+    updateTimerDisplay();
+    gameTimerInterval = setInterval(updateTimerDisplay, 500);
+  }
+}
+
+let _phaseAdvancing = false; // 중복 호출 방지
+
+function updateTimerDisplay(){
+  if(!gameState) return;
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const el = document.getElementById('gameTimerDisplay');
+  if(!el) return;
+
+  if(gameState.phase === 'roleReveal'){
+    el.textContent = remaining > 0 ? `${remaining}초` : '';
+    el.className = 'game-timer' + (remaining<=10?' urgent':'');
+    const autoTxt = document.getElementById('rrAutoTxt');
+    if(autoTxt && remaining>0) autoTxt.textContent = `${remaining}초 후 낮 토론으로 자동 이동`;
+  } else {
+    const m = Math.floor(remaining/60), s = remaining%60;
+    el.textContent = remaining>=60 ? `${m}:${String(s).padStart(2,'0')}` : `${remaining}초`;
+    el.className = 'game-timer' + (remaining<=15?' urgent':'');
+  }
+
+  // 페이즈별 내부 타이머 실시간 갱신
+  if(gameState.phase === 'day') updateDayTimerTick();
+  if(gameState.phase === 'vote') updateVoteTimerTick();
+  if(gameState.phase === 'voteResult') updateVoteResultBar();
+  if(gameState.phase === 'nightResult') updateNightResultTick();
+
+  // 호스트가 모든 페이즈 전환 주도 (중복 방지)
+  if(isHost && remaining<=0 && !_phaseAdvancing){
+    _phaseAdvancing = true;
+    clearInterval(gameTimerInterval);
+    advancePhase().finally(()=>{ _phaseAdvancing = false; });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ROLE REVEAL PHASE
+// ──────────────────────────────────────────────────────────────────────────────
+function renderRoleRevealPhase(area){
+  const p = myRole;
+  if(!p){ area.innerHTML='<div class="wait-txt">데이터 로딩 중...</div>'; return; }
+  const role = ROLES[p.roleId];
+  const MAFIA_IDS2 = ["GODFATHER","MAFIA","PROSTITUTE"];
+  const isMafia = MAFIA_IDS2.includes(p.roleId);
+  let mafiaTeamHtml = '';
+  if(isMafia){
+    const teammates = Object.values(gameState.players).filter(q=>q.id!==p.id&&MAFIA_IDS2.includes(q.roleId));
+    if(teammates.length){
+      mafiaTeamHtml = `<div class="mafia-team-box">🔴 마피아 팀원&emsp;${teammates.map(t=>`<span style="color:#f0a0a0;font-weight:700">${ROLES[t.roleId].emoji} ${esc(t.nick)}</span> <span style="color:var(--txt3);font-size:0.75rem">(${ROLES[t.roleId].name})</span>`).join('&emsp;')}</div>`;
+    }
+  }
+  let extra='';
+  if(p.roleId==='GODFATHER'){const m=Object.values(gameState.players).find(q=>q.roleId==='MAFIA');if(m)extra=`\n\n🤝 마피아 팀원: [${esc(m.nick)}] (마피아 일원)`;}
+  else if(p.roleId==='MAFIA'){const g=Object.values(gameState.players).find(q=>q.roleId==='GODFATHER');if(g)extra=`\n\n🤝 마피아 팀원: [${esc(g.nick)}] (대부)`;}
+  const timeLeft = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  area.innerHTML = `<div class="phase-banner">🌙 직업 확인</div>
+    <div class="role-card">
+      <div class="role-emoji-big">${role.emoji}</div>
+      <div class="role-name-big" style="color:${FC[role.faction]}">${role.name}</div>
+      <div class="role-faction-txt">${FN[role.faction]} 소속</div>
+      ${mafiaTeamHtml}
+      <div class="role-desc-box">${esc(ROLE_DESC[p.roleId]||'')+esc(extra)}</div>
+      <div class="auto-hide-txt" id="rrAutoTxt">${timeLeft>0?timeLeft+'초 후 낮 토론으로 자동 이동':'잠시 후 이동합니다...'}</div>
+    </div>`;
+  // 타이머는 updateTimerDisplay()가 관리
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DAY PHASE
+// ──────────────────────────────────────────────────────────────────────────────
+const DAY_TOTAL_SEC = 150; // 2분 30초
+
+function renderDayPhase(area){
+  // 정적 구조만 렌더링 (타이머 숫자는 updateDayTimerTick이 매초 갱신)
+  area.innerHTML = `
+    <div class="phase-banner">☀️ ${gameState.turn}번째 낮 — 토론</div>
+    <div style="text-align:center;width:100%;">
+      <div class="timer-display" id="dayTimerNum">-:--</div>
+      <div class="timer-bar" style="margin-top:8px;">
+        <div class="timer-fill" id="dayTimerBar" style="width:100%;background:#f4a261;"></div>
+      </div>
+    </div>
+    <div style="font-size:0.8rem;color:var(--txt3);text-align:center;line-height:1.6;">위 플레이어를 탭해 <b style='color:var(--gold)'>메모</b> 작성 · 자유롭게 토론하세요</div>
+    ${isHost?'<button class="btn btn-outline btn-sm" style="width:100%;" onclick="hostSkipToVote()">🗳️ 투표 바로 시작</button>':''}
+    <div style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+      <div style="font-size:0.68rem;color:var(--txt3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">투표 현황</div>
+      <div id="dayVoteSummary"></div>
+    </div>`;
+  renderDayVoteSummary();
+  updateDayTimerTick(); // 첫 틱 즉시 실행
+}
+
+// 낮 타이머 실시간 갱신 (gameTimerInterval에서 매 500ms 호출)
+function updateDayTimerTick(){
+  if(gameState?.phase !== 'day') return;
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const numEl = document.getElementById('dayTimerNum');
+  const barEl = document.getElementById('dayTimerBar');
+  if(numEl) numEl.textContent = formatTime(remaining);
+  if(barEl) barEl.style.width = `${Math.min(100,(remaining/DAY_TOTAL_SEC)*100)}%`;
+}
+
+function renderDayVoteSummary(){
+  const el = document.getElementById('dayVoteSummary');
+  if(!el) return;
+  const players = Object.values(gameState.players).filter(p=>p.alive);
+  const votes = gameState.votes||{};
+  el.innerHTML = players.map(p=>{
+    const cnt = Object.values(votes).filter(v=>v===p.id).length;
+    const pct = players.length>0?(cnt/players.length)*100:0;
+    return `<div class="vote-bar-row">
+      <div class="vote-bar-name">${esc(p.nick)}</div>
+      <div class="vote-bar-bg"><div class="vote-bar-fill" style="width:${pct}%"></div></div>
+      <div class="vote-bar-cnt">${cnt}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDayPlayers(){}
+
+window.hostSkipToVote = async function(){
+  if(!isHost) return;
+  await setPhase('vote', VOTE_TOTAL_SEC);
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VOTE PHASE
+// ──────────────────────────────────────────────────────────────────────────────
+function renderVotePhase(area){
+  const players = Object.values(gameState.players).filter(p=>p.alive);
+  const votes = gameState.votes||{};
+  const majority = Math.floor(players.length/2)+1;
+  const myVote = votes[myId];
+  const isAlive = myRole && myRole.alive;
+
+  const playerBtns = players.map(p=>{
+    const cnt = Object.values(votes).filter(v=>v===p.id).length;
+    const isMine = myVote===p.id;
+    const isMe = p.id===myId;
+    const selClass = isMine ? ' selected' : '';
+    const icon = isMe ? '🚫' : isMine ? '✓' : '○';
+    const onclk = (isAlive && !isMe) ? `castVote('${p.id}')` : '';
+    return `<button class="target-btn${selClass}" onclick="${onclk}">
+      <div style="font-size:1rem;">${icon}</div>
+      <div style="flex:1;font-weight:600;">${esc(p.nick)}</div>
+      <div style="font-size:0.78rem;color:${isMine?'#fff':'var(--txt3)'};">${cnt}표</div>
+    </button>`;
+  }).join('');
+
+  const aliveTxt = isAlive
+    ? `<div style="font-size:0.8rem;color:var(--txt3);text-align:center;">아래 목록을 탭해 투표하세요</div>`
+    : `<div style="font-size:0.8rem;color:var(--red2);text-align:center;">💀 사망 — 관전 중</div>`;
+
+  const skipBtn = isHost
+    ? `<button class="btn btn-outline btn-sm" style="width:100%;" onclick="hostResolveVote()">즉시 집계 →</button>`
+    : '';
+
+  area.innerHTML = `
+    <div class="phase-banner">🗳️ ${gameState.turn}번째 낮 — 투표</div>
+    <div style="text-align:center;width:100%;">
+      <div class="timer-display" id="voteTimerNum" style="font-size:2.4rem;">-</div>
+      <div class="timer-bar" style="margin-top:6px;">
+        <div class="timer-fill" id="voteTimerBar" style="width:100%;background:var(--red2);"></div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--txt3);margin-top:6px;">과반수 <b style="color:var(--txt)">${majority}표</b> 이상이면 추방</div>
+    </div>
+    ${aliveTxt}
+    <div class="target-list" style="width:100%;">${playerBtns}</div>
+    ${skipBtn}`;
+  updateVoteTimerTick();
+}
+
+const VOTE_TOTAL_SEC = 30;
+
+function updateVoteTimerTick(){
+  if(gameState?.phase !== 'vote') return;
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const numEl = document.getElementById('voteTimerNum');
+  const barEl = document.getElementById('voteTimerBar');
+  if(numEl) numEl.textContent = remaining + '초';
+  if(barEl) barEl.style.width = Math.min(100,(remaining/VOTE_TOTAL_SEC)*100) + '%';
+}
+
+
+window.castVote = async function(targetId){
+  if(!myRole||!myRole.alive) return;
+  if(targetId===myId) return;
+  const newVotes = {...(gameState.votes||{}), [myId]:targetId};
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),{votes:newVotes});
+};
+
+window.hostResolveVote = function(){
+  if(!isHost) return;
+  clearInterval(gameTimerInterval);
+  resolveVoteAsHost();
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NIGHT PHASE
+// ──────────────────────────────────────────────────────────────────────────────
+function renderNightPhase(area){
+  const p = myRole;
+  const nightActions = gameState.nightActions||{};
+  const nightQueue = gameState.nightQueue||[];
+
+  // 능력 없는 플레이어 (사망 포함) — 대기 화면
+  if(!p || !p.alive || !nightQueue.includes(myId)){
+    // 제출 현황 계산
+    const doneCount = nightQueue.filter(id=>nightActions[id]!==undefined).length;
+    const totalCount = nightQueue.filter(id=>!(gameState.players[id]?.isAI)).length; // AI 제외
+    area.innerHTML = `<div class="night-wait-box">
+      <div style="font-size:2.5rem;">${!p||!p.alive ? '💀' : '😴'}</div>
+      <div class="wait-txt">${!p||!p.alive ? '사망 — 관전 중입니다.' : '이번 밤 능력이 없습니다.'}<br>다른 플레이어들의 행동을 기다리세요.</div>
+      <div style="font-size:0.8rem;color:var(--teal);margin-top:4px;">${doneCount}/${totalCount}명 행동 완료</div>
+      <div style="font-size:0.72rem;color:var(--txt3);">💬 마피아라면 채팅 버튼으로 팀원과 대화하세요</div>
+    </div>`;
+    return;
+  }
+
+  // 이미 행동 제출한 경우 — 완료 대기 화면
+  const myActionSubmitted = nightActionDone || nightActions[myId] !== undefined;
+  if(myActionSubmitted){
+    const doneCount = nightQueue.filter(id=>nightActions[id]!==undefined).length;
+    const totalCount = nightQueue.filter(id=>!(gameState.players[id]?.isAI)).length;
+    const role = ROLES[p.roleId];
+    area.innerHTML = `<div class="night-wait-box">
+      <div style="font-size:2rem;">${role.emoji}</div>
+      <div style="font-weight:700;color:${FC[role.faction]};font-size:0.9rem;">행동 완료</div>
+      <div class="wait-txt">능력을 사용했습니다.<br>다른 플레이어들의 행동을 기다리세요.</div>
+      <div style="font-size:0.8rem;color:var(--teal);">${doneCount}/${totalCount}명 행동 완료</div>
+    </div>`;
+    return;
+  }
+
+  // 행동 UI 표시
+  const role = ROLES[p.roleId];
+  const MAFIA_IDS2 = ["GODFATHER","MAFIA","PROSTITUTE"];
+  const isMafia = MAFIA_IDS2.includes(p.roleId);
+  const alive = Object.values(gameState.players).filter(q=>q.alive);
+  const canSelf = p.roleId==='DOCTOR';
+  // 버스기사·마녀 2단계: A(witchSrc)를 제외한 나머지만 선택 가능
+  const targets = canSelf ? alive
+    : ((p.roleId==='BUSDRIVER'||p.roleId==='WITCH') && witchStep===2)
+      ? alive.filter(q=>q.id!==myId && q.id!==witchSrc)
+      : alive.filter(q=>q.id!==myId);
+  const instrMap = {
+    GODFATHER:"제거할 플레이어를 선택하세요\n(기생 선택 시 창부로 영입)",
+    MAFIA:p.roleId&&p._inherited?"대부 능력 승계\n제거할 플레이어를 선택하세요":"직업을 조사할 플레이어를 선택하세요",
+    PROSTITUTE:"능력을 무효화할 플레이어를 선택하세요",
+    POLICE:"조사할 플레이어를 선택하세요\n(마피아 소속 여부만 확인됩니다)",
+    DOCTOR:"살릴 플레이어를 선택하세요 (자신 포함 가능)",
+    HUNTER:"추적할 플레이어를 선택하세요",
+    PARASITE:"능력을 무효화할 플레이어를 선택하세요",
+    VETERAN:gameState.turn===2?"사살할 플레이어를 선택하세요\n(대부 선택 시 공격 실패)":"이번 밤은 대기 상태 (2번째 밤에만 발동)",
+    WITCH:witchStep===1?"능력을 빌릴 플레이어(A)를 선택하세요":`능력을 적용할 플레이어(B)를 선택하세요\n(A: ${esc(Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'')}`,
+    JOURNALIST:"직업을 전체 공개할 플레이어를 선택하세요\n(단 1회 사용 가능)",
+    BUSDRIVER:witchStep===1?"위치를 바꿀 첫 번째 플레이어(A)를 선택하세요":`두 번째 플레이어(B)를 선택하세요\n(A: ${esc(Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'')}`,
+  };
+  let mafiaTeamHtml='';
+  if(isMafia){
+    const teammates=Object.values(gameState.players).filter(q=>q.id!==p.id&&MAFIA_IDS2.includes(q.roleId)&&q.alive);
+    if(teammates.length) mafiaTeamHtml=`<div class="mafia-team-box" style="font-size:0.78rem;">🔴 마피아 팀원 ${teammates.map(t=>`<b>${esc(t.nick)}</b>(${ROLES[t.roleId].name})`).join(' · ')}</div>`;
+  }
+  const witchSrcNick = witchSrc ? (Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'') : '';
+  const witchInfoHtml = witchSrc
+    ? `<div style="background:rgba(155,89,182,0.15);border:1px solid rgba(155,89,182,0.3);border-radius:10px;padding:8px 14px;font-size:0.82rem;color:#c09de0;display:flex;align-items:center;gap:10px;">
+        <span>✅ A: <b>${esc(witchSrcNick)}</b></span>
+        <button onclick="resetWitchStep()" style="margin-left:auto;background:rgba(155,89,182,0.2);border:1px solid rgba(155,89,182,0.4);border-radius:6px;color:#c09de0;font-size:0.72rem;padding:3px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">↩ 다시 선택</button>
+      </div>`
+    : '';
+  area.innerHTML = `<div class="night-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:1.5rem;">${role.emoji}</span>
+      <span style="font-weight:700;color:${FC[role.faction]}">${role.name}</span>
+    </div>
+    ${mafiaTeamHtml}
+    <div class="night-instr" style="margin:8px 0;">${esc(instrMap[p.roleId]||'').replace(/\n/g,'<br>')}</div>
+    ${witchInfoHtml}
+    <div class="target-list" id="nightTargetList">${targets.map(t=>{
+      const isMafiaTeam = isMafia && MAFIA_IDS2.includes(t.roleId);
+      // 1단계에서 witchSrc로 선택된 플레이어 하이라이트
+      const isWitchA = (p.roleId==='WITCH'||p.roleId==='BUSDRIVER') && witchStep===1 && t.id===witchSrc;
+      return `<button class="target-btn${selectedTarget===t.id||isWitchA?' selected':''}" onclick="selectNightTarget('${t.id}')"
+        style="${isWitchA?'border-color:rgba(155,89,182,0.6);background:rgba(155,89,182,0.18);':''}">
+        ${esc(t.nick)}
+        ${isWitchA?'<span style="font-size:0.68rem;color:#c09de0;margin-left:4px;">← A 선택됨</span>':''}
+        ${isMafiaTeam?`<span style="font-size:0.73rem;color:var(--mafia);opacity:0.85">(${ROLES[t.roleId].name})</span>`:''}
+      </button>`;
+    }).join('')}</div>
+    <div class="row2" style="margin-top:12px;">
+      ${(p.roleId==='WITCH'||p.roleId==='BUSDRIVER')&&witchStep===1&&witchSrc
+        ? `<button class="btn btn-gold" onclick="confirmWitchA()" style="flex:2;">✅ 확정 → B 선택</button>`
+        : `<button class="btn btn-danger" id="nightUseBtn" onclick="useNightAbility()"
+            ${(p.roleId==='WITCH'||p.roleId==='BUSDRIVER')
+              ? (witchSrc&&witchStep===2&&selectedTarget?'':'disabled')
+              : (selectedTarget?'':'disabled')}>능력 사용</button>`}
+      <button class="btn btn-ghost" onclick="skipNightAbility()">건너뛰기</button>
+    </div>
+  </div>`;
+}
+
+window.selectNightTarget = function(id){
+  const p = myRole;
+  if(!p) return;
+  if(p.roleId==='WITCH'||p.roleId==='BUSDRIVER'){
+    if(witchStep===1){
+      if(witchSrc===id){
+        // 이미 선택한 A를 다시 탭 → 선택 취소
+        witchSrc=null;
+        renderNightPhase(document.getElementById('phaseArea'));
+        return;
+      }
+      witchSrc=id;
+      // 재렌더: 하이라이트 표시 (아직 1단계 유지 — 확정은 직접 2단계로 가야)
+      renderNightPhase(document.getElementById('phaseArea'));
+      return;
+    } else {
+      // 2단계: A와 동일 선택 방지
+      if(id===witchSrc){
+        toast('첫 번째로 선택한 플레이어와 다른 플레이어를 선택하세요','error');
+        return;
+      }
+      selectedTarget=id;
+    }
+  } else {
+    selectedTarget=id;
+  }
+  document.querySelectorAll('.target-btn').forEach(b=>b.classList.remove('selected'));
+  event.target.closest('.target-btn')?.classList.add('selected');
+  const btn=document.getElementById('nightUseBtn');
+  if(btn) btn.disabled=false;
+};
+
+// A 선택 취소 후 1단계로 돌아가기
+// A 확정 → 2단계(B 선택)로 전환
+window.confirmWitchA = function(){
+  if(!witchSrc) return;
+  witchStep=2;
+  selectedTarget=null;
+  renderNightPhase(document.getElementById('phaseArea'));
+};
+
+window.resetWitchStep = function(){
+  witchSrc=null;
+  witchStep=1;
+  selectedTarget=null;
+  renderNightPhase(document.getElementById('phaseArea'));
+};
+
+window.useNightAbility = async function(){
+  if(!myRole||nightActionDone) return;
+  let action;
+  const p=myRole;
+  if(p.roleId==='WITCH'||p.roleId==='BUSDRIVER'){
+    action={source:witchSrc,target:selectedTarget};
+  } else {
+    action=selectedTarget;
+  }
+  nightActionDone=true;
+  await update(ref(db,`rooms/${currentRoomId}/gameState/nightActions`),{[myId]:action});
+  // listenNightActions가 변경 감지 후 자동으로 renderNightPhase + checkNightQueue 호출
+};
+
+window.skipNightAbility = async function(){
+  nightActionDone=true;
+  // null을 sentinel 값으로 저장해서 "건너뜀" 표시
+  await update(ref(db,`rooms/${currentRoomId}/gameState/nightActions`),{[myId]:'skip'});
+};
+
+function listenNightActions(){
+  if(nightActionsListener) off(ref(db,`rooms/${currentRoomId}/gameState/nightActions`),'value',nightActionsListener);
+  nightActionsListener = onValue(ref(db,`rooms/${currentRoomId}/gameState/nightActions`),snap=>{
+    if(gameState) gameState.nightActions = snap.val()||{};
+    if(gameState?.phase==='night'){
+      renderNightPhase(document.getElementById('phaseArea'));
+      if(isHost) checkNightQueue(); // 모두 제출했으면 자동으로 결과 처리
+    }
+  });
+}
+
+async function checkNightQueue(){
+  if(!isHost||!gameState) return;
+  const queue = gameState.nightQueue||[];
+  if(!queue.length){ await doResolveNight(); return; }
+  const actions = {...(gameState.nightActions||{})};
+
+  // AI 행동이 누락된 경우 강제 주입 (방장 사망/재접속 등 예외 상황 대비)
+  let needsUpdate = false;
+  const turn = gameState.turn||1;
+  queue.forEach(pid=>{
+    if(actions[pid] === undefined){
+      const p = gameState.players[pid];
+      if(p && p.isAI){
+        actions[pid] = cpuPickTargetForAI(p, gameState.players, turn) ?? 'skip';
+        needsUpdate = true;
+      }
+    }
+  });
+  if(needsUpdate){
+    await update(ref(db,`rooms/${currentRoomId}/gameState/nightActions`), actions);
+    return; // listenNightActions가 변경 감지 후 다시 checkNightQueue 호출
+  }
+
+  const allDone = queue.every(id => actions[id] !== undefined);
+  if(allDone){
+    const snap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
+    if(snap.val()==='night') await doResolveNight();
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HOST PHASE MANAGEMENT
+// ──────────────────────────────────────────────────────────────────────────────
+async function advancePhase(){
+  if(!isHost||!gameState) return;
+  const phase = gameState.phase;
+  // 이미 다음 페이즈로 전환됐으면 무시 (타이머 중복 트리거 방지)
+  const snap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
+  if(snap.val() !== phase) return;
+
+  if(phase==='roleReveal')       await startDay();
+  else if(phase==='day')         await setPhase('vote', VOTE_TOTAL_SEC);
+  else if(phase==='vote')        await resolveVoteAsHost();
+  else if(phase==='voteResult')  await startNightPhase();   // 5초 딜레이 후 밤 시작
+  else if(phase==='night'){
+    await checkNightQueue();
+  }
+  else if(phase==='nightResult') await hostStartNextDayInternal();
+}
+
+// 내부용 (advancePhase에서 자동 호출)
+async function hostStartNextDayInternal(){
+  if(!isHost||!gameState) return;
+
+  // pendingWin이 있으면 낮으로 가지 않고 게임 종료
+  const pendingWin = gameState.pendingWin;
+  if(pendingWin){
+    await update(ref(db,`rooms/${currentRoomId}`),{
+      status:'ended',
+      endResult:{winner:pendingWin, players:gameState.players}
+    });
+    return;
+  }
+
+  const newTurn = (gameState.turn||1) + 1;
+  // 새 낮 시작 시 _voteEliminated 플래그 전부 초기화
+  const cleanedPlayers = {};
+  Object.entries(gameState.players).forEach(([id,p])=>{
+    cleanedPlayers[id] = {...p};
+    delete cleanedPlayers[id]._voteEliminated;
+  });
+  await sendSystemChat(`☀️ ${newTurn}번째 낮이 밝았습니다. 자유롭게 토론하세요.`);
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),{
+    phase:'day', turn:newTurn,
+    players:cleanedPlayers,
+    privateMsgs:{}, nightActions:{}, votes:{},
+    pendingWin:null,
+    phaseStartTime:Date.now(), phaseEndTime:Date.now()+(DAY_TOTAL_SEC*1000)
+  });
+}
+
+async function startDay(){
+  if(!isHost) return;
+  const updates = {
+    phase:'day',
+    turn: gameState.turn||1,
+    nightQueueIdx:0,
+    nightActions:{},
+    votes:{},
+    phaseStartTime:Date.now(),
+    phaseEndTime:Date.now()+(DAY_TOTAL_SEC*1000)
+  };
+  await sendSystemChat(`☀️ ${gameState.turn||1}번째 낮이 밝았습니다. 자유롭게 토론하세요.`);
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),updates);
+}
+
+async function setPhase(phase, durationSec){
+  const updates={phase, phaseStartTime:Date.now(), phaseEndTime:Date.now()+(durationSec*1000)};
+  if(phase==='vote'){updates.votes={};}
+  if(phase==='night'){
+    const players = Object.values(gameState.players);
+    const currentTurnForQueue = gameState.turn||1;
+    const queue = players.filter(p=>{
+      if(!p.alive) return false;
+      const id=p.roleId;
+      if(id==='MAFIA'&&Object.keys(gameState.players).length<8) return false;
+      if(id==='JOURNALIST'&&p.journalistUsed) return false;
+      // 퇴역군인은 2번째 밤에만 큐에 포함 (다른 밤엔 행동 없음)
+      if(id==='VETERAN'&&currentTurnForQueue!==2) return false;
+      return ["GODFATHER","POLICE","DOCTOR","HUNTER","PARASITE","VETERAN","WITCH","MAFIA","JOURNALIST","BUSDRIVER","PROSTITUTE"].includes(id);
+    }).map(p=>p.id);
+    updates.nightQueue=queue;
+    updates.nightQueueIdx=0;
+    updates.nightActions={};
+    updates.turn=(gameState.turn||1); // 낮 turn N → 밤 turn N 동일하게 유지
+    // Pre-fill AI actions immediately (모든 AI는 즉시 행동 제출)
+    const aiActions = {};
+    const turn = gameState.turn||1;
+    queue.forEach(pid=>{
+      const p=gameState.players[pid];
+      if(p&&p.isAI){
+        const action = cpuPickTargetForAI(p, gameState.players, turn);
+        // null/undefined 방지: 항상 값을 넣어야 allDone 체크 통과
+        aiActions[pid] = action !== undefined && action !== null ? action : 'skip';
+      }
+    });
+    if(Object.keys(aiActions).length) updates.nightActions=aiActions;
+  }
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),updates);
+  // Inject AI votes right away for vote phase
+  if(phase==='vote') setTimeout(()=>injectAIVotes(),400);
+  // For night phase, AI actions already injected above
+}
+
+async function resolveVoteAsHost(){
+  if(!isHost||!gameState) return;
+  const players=Object.values(gameState.players).filter(p=>p.alive);
+  const votes=gameState.votes||{};
+  const majority=Math.floor(players.length/2)+1;
+  let topId=null,topCnt=0;
+  players.forEach(p=>{const c=Object.values(votes).filter(v=>v===p.id).length;if(c>topCnt){topCnt=c;topId=p.id;}});
+  let newPlayers={...gameState.players};
+  let eliminated = false; // 추방 여부 플래그
+  if(topId&&topCnt>=majority){
+    const target=newPlayers[topId];
+    const fn=FN[ROLES[target.roleId]?.faction||'citizen'];
+    // 직업은 공개하지 않고 소속만 공개
+    newPlayers[topId]={...target, alive:false, _voteEliminated:true};
+    await sendSystemChat(`⚖️ ${target.nick}이(가) 마을에서 추방되었습니다. [${fn} 소속]`);
+    eliminated = true;
+    // Godfather succession
+    if(target.roleId==='GODFATHER'){
+      const mafMember=Object.values(newPlayers).find(p=>p.roleId==='MAFIA'&&p.alive);
+      if(mafMember){ newPlayers[mafMember.id]={...mafMember,roleId:'MAFIA',_inherited:true}; }
+    }
+  } else {
+    // 과반수 없을 때: 밤에 죽은 사람 언급 절대 없이 깔끔하게
+    await sendSystemChat('🤝 과반수 찬성이 없어 아무도 추방되지 않았습니다.');
+  }
+  // Check win
+  const win=checkWin(newPlayers);
+  if(win){
+    await update(ref(db,`rooms/${currentRoomId}`),{status:'ended',endResult:{winner:win,players:newPlayers},'gameState/players':newPlayers});
+    return;
+  }
+  // 낮 turn N이 끝나면 → 투표 결과 화면 5초 → 밤 turn N 시작
+  const currentTurn = gameState.turn||1;
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),{players:newPlayers, votes:{}, turn:currentTurn});
+  // 5초 대기 페이즈 (voteResult): 추방 결과를 모두 확인할 시간
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),{
+    phase:'voteResult',
+    phaseStartTime:Date.now(),
+    phaseEndTime:Date.now()+5000,
+  });
+}
+
+// 투표 결과 → 밤 전환 (advancePhase에서 호출)
+async function startNightPhase(){
+  if(!isHost||!gameState) return;
+  const currentTurn = gameState.turn||1;
+  await sendSystemChat(`🌙 ${currentTurn}번째 밤이 찾아왔습니다.`);
+  await setPhase('night', 30); // 밤 30초
+}
+
+let _resolveNightRunning = false;
+
+async function doResolveNight(){
+  if(!isHost||!gameState) return;
+  if(_resolveNightRunning){ return; }
+  _resolveNightRunning = true;
+
+  try {
+    // Firebase phase 재확인
+    const phaseSnap = await get(ref(db,`rooms/${currentRoomId}/gameState/phase`));
+    if(phaseSnap.val() !== 'night') return;
+
+    // 최신 nightActions를 Firebase에서 직접 읽기
+    let freshActions={};
+    try { const s=await get(ref(db,`rooms/${currentRoomId}/gameState/nightActions`)); freshActions=s.val()||{}; } catch(e){}
+
+    const result=resolveNightActions(gameState.players, freshActions, gameState.turn||1);
+
+    for(const msg of result.publicMsgs) await sendSystemChat(msg);
+
+    const pmUpdates={};
+    Object.entries(result.privateMsgs).forEach(([pid,msgs])=>{ pmUpdates[`gameState/privateMsgs/${pid}`]=msgs; });
+
+    const win=checkWin(result.players);
+
+    await update(ref(db,`rooms/${currentRoomId}`),{
+      'gameState/players':result.players,
+      'gameState/nightActions':{},
+      'gameState/phase':'nightResult',
+      'gameState/phaseStartTime':Date.now(),
+      'gameState/phaseEndTime':Date.now()+15000,
+      'gameState/publicAnnouncements':result.announcements,
+      'gameState/pendingWin':win||null,
+      ...pmUpdates
+    });
+  } finally {
+    // 성공/실패/예외 어떤 경우에도 반드시 초기화
+    _resolveNightRunning = false;
+  }
+}
+
+// 투표 결과 TTS
+function _announceVoteResult(){
+  const voteKilled = Object.values(gameState.players).find(p=>!p.alive && p._voteEliminated);
+  if(voteKilled){
+    const fn = FN[ROLES[voteKilled.roleId]?.faction||'citizen'];
+    speak(`투표 결과, ${voteKilled.nick}이(가) 마을에서 추방되었습니다. ${fn} 소속이었습니다. 잠시 후 밤이 시작됩니다.`);
+  } else {
+    speak('과반수 찬성이 없어 아무도 추방되지 않았습니다. 잠시 후 밤이 시작됩니다.');
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VOTE RESULT PHASE (투표 결과 → 밤 전환 딜레이 화면)
+// ──────────────────────────────────────────────────────────────────────────────
+function renderVoteResultPhase(area){
+  // _voteEliminated 플래그가 있는 플레이어만 투표 추방자로 표시
+  // (밤에 죽은 플레이어와 명확히 구분)
+  const voteKilled = Object.values(gameState.players).find(p=>!p.alive && p._voteEliminated);
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+
+  let resultHtml = '';
+  if(voteKilled){
+    const faction = ROLES[voteKilled.roleId]?.faction || 'citizen';
+    resultHtml = `
+      <div style="font-size:3rem;margin-bottom:4px;">⚖️</div>
+      <div style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:700;color:var(--red2);">${esc(voteKilled.nick)}</div>
+      <div style="font-size:0.85rem;color:var(--txt3);">마을에서 추방되었습니다</div>
+      <div style="margin-top:8px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:10px;padding:10px 20px;display:inline-flex;align-items:center;gap:8px;">
+        <span style="font-size:1.1rem;">👤</span>
+        <span style="font-weight:700;color:${FC[faction]}">${FN[faction]} 소속</span>
+      </div>`;
+  } else {
+    resultHtml = `
+      <div style="font-size:3rem;margin-bottom:4px;">🤝</div>
+      <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:var(--txt2);">아무도 추방되지 않았습니다</div>`;
+  }
+
+  area.innerHTML = `
+    <div class="phase-banner">⚖️ 투표 결과</div>
+    <div style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:28px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+      ${resultHtml}
+    </div>
+    <div style="font-size:0.8rem;color:var(--txt3);text-align:center;">${remaining}초 후 밤이 시작됩니다...</div>
+    <div class="timer-bar" style="width:100%;max-width:200px;">
+      <div class="timer-fill" id="voteResultBar" style="width:100%;background:var(--purple);transition:width 1s linear;"></div>
+    </div>`;
+
+  // 프로그레스 바 실시간 갱신
+  updateVoteResultBar();
+}
+
+function updateVoteResultBar(){
+  if(gameState?.phase !== 'voteResult') return;
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const bar = document.getElementById('voteResultBar');
+  const txt = document.querySelector('#phaseArea [style*="초 후 밤이"]');
+  if(bar) bar.style.width = `${(remaining/5)*100}%`;
+  if(txt) txt.textContent = `${remaining}초 후 밤이 시작됩니다...`;
+}
+
+// 밤 결과 TTS — announcements 기반으로 순서대로 읽어줌
+function _announceNightResult(){
+  const announcements = gameState.publicAnnouncements||[];
+  if(!announcements.length){
+    speak('밤이 지나갔습니다. 결과를 확인하세요.');
+    return;
+  }
+  speak('밤이 지나갔습니다.');
+  for(const a of announcements){
+    if(a.type==='death')    speak(a.sub.includes('퇴역군인') ? a.title.replace(' 사망','') + '이(가) 퇴역군인에게 사살되었습니다.' : a.title.replace(' 사망','') + '이(가) 밤에 사망했습니다.');
+    else if(a.type==='saved')   speak(a.sub);
+    else if(a.type==='recruit') speak('기생 플레이어가 밤사이 마피아로 포섭되었습니다.');
+    else if(a.type==='expose')  speak(a.sub);
+    else if(a.type==='quiet')   speak('이번 밤은 아무 일도 일어나지 않았습니다.');
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NIGHT RESULT PHASE
+// ──────────────────────────────────────────────────────────────────────────────
+function renderNightResultPhase(area){
+  const myMsgs = (gameState.privateMsgs||{})[myId]||[];
+  const announcements = gameState.publicAnnouncements||[];
+
+  // 공개 공지 카드 HTML 생성
+  const typeColors = {death:'var(--red2)', saved:'var(--teal)', expose:'var(--gold)', quiet:'var(--txt3)', recruit:'#e74c3c'};
+  const announceHtml = announcements.map((a,i)=>`
+    <div class="night-announce-card ${a.type}" style="animation-delay:${i*0.12}s">
+      <div class="na-icon">${a.icon}</div>
+      <div class="na-body">
+        <div class="na-title" style="color:${typeColors[a.type]||'var(--txt)'}">${esc(a.title)}</div>
+        <div class="na-sub">${esc(a.sub)}</div>
+      </div>
+    </div>`).join('');
+
+  // 개인 알림 HTML
+  const privateHtml = myMsgs.length
+    ? myMsgs.map(m=>`
+        <div style="background:rgba(26,188,156,0.08);border:1px solid rgba(26,188,156,0.2);
+                    border-radius:10px;padding:10px 14px;font-size:0.82rem;
+                    color:#1abc9c;line-height:1.5;">${esc(m)}</div>`).join('')
+    : `<div style="font-size:0.8rem;color:var(--txt3);text-align:center;padding:6px 0;">이번 밤 개인 알림이 없습니다.</div>`;
+
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const pendingWin = gameState.pendingWin;
+  const nextBtnLabel = pendingWin
+    ? `🏁 게임 결과 확인 →`
+    : `☀️ ${(gameState.turn||1)+1}번째 낮으로 →`;
+
+  area.innerHTML = `
+    <div class="phase-banner">🌅 ${gameState.turn}번째 밤 결과</div>
+
+    <!-- 전체 공개 공지 (크게) -->
+    <div class="night-result-divider">전체 공개</div>
+    <div class="night-announce">${announceHtml}</div>
+
+    <!-- 나에게 온 개인 알림 -->
+    <div class="night-result-divider">나의 정보</div>
+    <div style="width:100%;display:flex;flex-direction:column;gap:7px;">${privateHtml}</div>
+
+    <!-- 자동 전환 타이머 -->
+    <div style="width:100%;text-align:center;margin-top:6px;">
+      <div style="font-size:0.75rem;color:var(--txt3);" id="nightResultCountdown">${remaining}초 후 자동 이동</div>
+      <div class="timer-bar" style="margin-top:4px;"><div class="timer-fill" id="nightResultBar" style="width:100%;background:var(--gold);transition:width 1s linear;"></div></div>
+    </div>
+
+
+    <!-- 방장: 바로 넘기기 버튼 -->
+    <div style="width:100%;margin-top:4px;">
+      ${isHost
+        ? `<button class="btn btn-gold btn-full" onclick="hostStartNextDay()">${nextBtnLabel}</button>`
+        : `<div style="font-size:0.8rem;color:var(--txt3);text-align:center;">잠시 후 자동으로 이동합니다...</div>`}
+    </div>`;
+}
+
+// nightResult 카운트다운 틱
+function updateNightResultTick(){
+  if(gameState?.phase !== 'nightResult') return;
+  const total = 15;
+  const remaining = Math.max(0, Math.ceil((gameState.phaseEndTime - Date.now())/1000));
+  const cd = document.getElementById('nightResultCountdown');
+  const bar = document.getElementById('nightResultBar');
+  if(cd) cd.textContent = `${remaining}초 후 자동 이동`;
+  if(bar) bar.style.width = `${(remaining/total)*100}%`;
+}
+
+window.hostStartNextDay = async function(){
+  if(!isHost) return;
+  await hostStartNextDayInternal();
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NIGHT RESOLUTION LOGIC (identical to offline version)
+// ──────────────────────────────────────────────────────────────────────────────
+function resolveNightActions(players, actionsRaw, turn){
+  let ps={}; Object.entries(players).forEach(([id,p])=>ps[id]={...p});
+  const originalPlayers={}; Object.entries(players).forEach(([id,p])=>originalPlayers[id]={...p});
+  const pById=id=>ps[id];
+  const privateMsgs={};
+  const pm=(id,msg)=>{ if(!privateMsgs[id]) privateMsgs[id]=[]; privateMsgs[id].push(msg); };
+
+  // ── STEP 0: actions를 깊은 복사 후 'skip' sentinel 즉시 null로 변환 ──
+  const actions = {};
+  Object.entries(actionsRaw).forEach(([k,v])=>{ actions[k] = (v==='skip') ? null : v; });
+
+  // ── STEP 1: 마녀 redirect 구성 (skip 변환 이후) ──
+  const witchP=Object.values(ps).find(p=>p.alive&&p.roleId==='WITCH');
+  const witchActRaw = witchP ? actions[witchP.id] : null;
+  // 반드시 {source, target} 객체인지 검증
+  const witchAct = (witchActRaw && typeof witchActRaw==='object' && witchActRaw.source!=null && witchActRaw.target!=null)
+    ? witchActRaw : null;
+  const redirect={};
+  let witchBlockedByBus=false;
+  if(witchAct){
+    const witchSrcP=ps[witchAct.source];
+    if(witchSrcP&&witchSrcP.roleId==='BUSDRIVER') witchBlockedByBus=true;
+    else redirect[witchAct.source]=witchAct.target;
+  }
+
+  // ── STEP 2: 버스기사 정보 미리 추출 ──
+  const busP0=Object.values(ps).find(p=>p.alive&&p.roleId==='BUSDRIVER');
+  const busActRaw0 = busP0 ? actions[busP0.id] : null;
+  const busAct0 = (busActRaw0 && typeof busActRaw0==='object'
+    && busActRaw0.source!=null && busActRaw0.target!=null
+    && typeof busActRaw0.source==='string' && typeof busActRaw0.target==='string')
+    ? busActRaw0 : null;
+
+  // ── STEP 3: 기생/창부 nullified 계산 (bus redirect 전에 먼저) ──
+  // 기생이 A를 타깃 → A의 능력 무효. 기생이 버스기사를 타깃 → 버스기사 교환 무효
+  const parasiteP=Object.values(ps).find(p=>p.alive&&(p.roleId==='PARASITE'||p.roleId==='PROSTITUTE'));
+  const parasiteRaw=(parasiteP&&actions[parasiteP.id]!=null)?actions[parasiteP.id]:null;
+  const nullified=new Set();
+  let parasiteTarget=null;
+
+  // 기생 타깃 결정 (마녀 redirect만 적용, bus redirect는 아직 없음)
+  if(parasiteRaw!=null && typeof parasiteRaw==='string'){
+    const afterWitch = redirect[parasiteP.id]!==undefined ? redirect[parasiteP.id] : parasiteRaw;
+    const targetP=ps[afterWitch];
+    if(targetP&&targetP.roleId==='WITCH'){ parasiteTarget=null; }
+    else { parasiteTarget=afterWitch; nullified.add(afterWitch); }
+  }
+
+  // ── STEP 4: 버스기사 redirect 구성 (기생에게 차단됐으면 무효) ──
+  const busRedirect={};
+  const busNullified = busP0 && nullified.has(busP0.id); // 기생이 버스기사를 차단했는가?
+  if(busAct0 && !busNullified){
+    busRedirect[busAct0.source]=busAct0.target;
+    busRedirect[busAct0.target]=busAct0.source;
+    console.log('[버스기사] 교환:', busAct0.source, '↔', busAct0.target);
+  } else if(busAct0 && busNullified){
+    console.log('[버스기사] 기생에게 차단됨');
+  } else if(!busAct0 && busP0){
+    console.log('[버스기사] 액션 없음, busActRaw0:', JSON.stringify(busActRaw0));
+  }
+
+  // ── STEP 5: eff 함수 (마녀 redirect → 버스기사 redirect 순서) ──
+  const eff=(aid,raw)=>{
+    if(raw==null) return raw;
+    // 마녀 redirect 적용
+    const afterWitch = redirect[aid]!==undefined ? redirect[aid] : raw;
+    // 버스기사 redirect 적용 (버스기사 본인 제외, 차단된 경우 제외)
+    if(aid!==busP0?.id && busRedirect[afterWitch]!==undefined){
+      console.log(`[eff] ${aid} 타깃 ${afterWitch} → 버스교환 → ${busRedirect[afterWitch]}`);
+      return busRedirect[afterWitch];
+    }
+    return afterWitch;
+  };
+
+  // 헬퍼: actions[id]가 null이 아닌 문자열 ID인지 확인 (객체 제외)
+  const getIdAction = (pid) => {
+    const v = actions[pid];
+    if(v==null) return null;
+    if(typeof v !== 'string') return null; // 객체(witch/bus)는 ID가 아님
+    return v;
+  };
+
+  // ── STEP 5: 각 능력자 타깃 계산 ──
+  const gfP=Object.values(ps).find(p=>p.alive&&(p.roleId==='GODFATHER'||(p.roleId==='MAFIA'&&p._inherited)));
+  const gfRaw = gfP ? getIdAction(gfP.id) : null;
+  const gfTarget = (gfRaw!=null && !nullified.has(gfP?.id)) ? eff(gfP.id,gfRaw) : null;
+
+  const docP=Object.values(ps).find(p=>p.alive&&p.roleId==='DOCTOR');
+  const docRaw = docP ? (actions[docP.id]!=null && typeof actions[docP.id]==='string' ? actions[docP.id] : null) : null;
+  const docTarget = (docRaw!=null && !nullified.has(docP?.id)) ? eff(docP.id,docRaw) : null;
+
+  // 퇴역군인: turn===2에서만, 반드시 문자열 ID
+  const vetP=Object.values(ps).find(p=>p.alive&&p.roleId==='VETERAN');
+  const vetRaw = (vetP && turn===2) ? getIdAction(vetP.id) : null;
+  const vetTarget = (vetRaw!=null && !nullified.has(vetP?.id)) ? eff(vetP.id,vetRaw) : null;
+
+  const polP=Object.values(ps).find(p=>p.alive&&p.roleId==='POLICE');
+  const polRaw = polP ? getIdAction(polP.id) : null;
+  const polTarget = (polRaw!=null && !nullified.has(polP?.id)) ? eff(polP.id,polRaw) : null;
+
+  const hunP=Object.values(ps).find(p=>p.alive&&p.roleId==='HUNTER');
+  const hunRaw = hunP ? getIdAction(hunP.id) : null;
+  const hunTarget = (hunRaw!=null && !nullified.has(hunP?.id)) ? eff(hunP.id,hunRaw) : null;
+
+  const mafP=Object.values(ps).find(p=>p.alive&&p.roleId==='MAFIA'&&!p._inherited);
+  const mafRaw = mafP ? getIdAction(mafP.id) : null;
+  const mafTarget = (mafRaw!=null && !nullified.has(mafP?.id)) ? eff(mafP.id,mafRaw) : null;
+
+  const abilityUsed={};
+  if(gfTarget!=null) abilityUsed[gfP.id]=gfTarget;
+  if(docTarget!=null) abilityUsed[docP.id]=docTarget;
+  if(vetTarget!=null) abilityUsed[vetP.id]=vetTarget;
+  if(polTarget!=null) abilityUsed[polP.id]=polTarget;
+  if(hunTarget!=null) abilityUsed[hunP.id]=hunTarget;
+  if(mafTarget!=null) abilityUsed[mafP.id]=mafTarget;
+
+  // ── STEP 6: killed Set 구성 ──
+  // 규칙: 밤에 사망 처리는 대부(gfTarget) 또는 퇴역군인(vetTarget, turn2만) 각 1명
+  // 같은 플레이어를 둘 다 타깃하면 한 번만 처리
+  const killed=new Set();
+  const publicMsgs=[];
+  let vetNoKill=false;
+  let busSwapped=null;
+
+  // 퇴역군인 처리 (turn===2만, 이미 vetRaw에서 걸러짐)
+  if(vetTarget!=null){
+    const t=pById(vetTarget);
+    if(t&&t.alive){
+      if(t.roleId==='GODFATHER'&&!t._inherited) vetNoKill=true;
+      else if(docTarget!==vetTarget) killed.add(vetTarget);
+    }
+  }
+  if(vetNoKill) publicMsgs.push("퇴역군인이 누군가를 공격했으나 죽지 않았습니다.");
+
+  let recruitedPlayer=null;
+
+  // 대부 처리
+  if(gfTarget!=null){
+    const t=pById(gfTarget);
+    if(t&&t.alive){
+      if(t.roleId==='PARASITE'){
+        ps[gfTarget]={...ps[gfTarget],roleId:'PROSTITUTE'};
+        recruitedPlayer=t;
+        publicMsgs.push('💋 기생 플레이어가 밤사이 마피아로 포섭되었습니다.');
+        pm(gfTarget,`당신은 대부 [${pById(gfP.id)?.nick}]에게 영입되어 창부가 되었습니다.`);
+      } else if(docTarget===gfTarget){
+        publicMsgs.push(`💉 ${t.nick}이(가) 죽을 뻔 했으나 의사가 극적으로 살려냈습니다!`);
+      } else {
+        killed.add(gfTarget);
+      }
+    }
+  }
+
+  killed.forEach(id=>{
+    const t=pById(id);
+    if(t){
+      ps[id]={...ps[id],alive:false};
+      // 퇴역군인 사살: 원래 vetTarget이었거나 busRedirect로 교환된 경우
+      const isVetKill = (id===vetTarget);
+      if(isVetKill){
+        publicMsgs.push(`🎖️ 퇴역군인이 ${t.nick}을(를) 사살했습니다. 직업: [${ROLES[t.roleId]?.name}]`);
+      } else {
+        publicMsgs.push(`🌙 ${FN[ROLES[t.roleId]?.faction||'citizen']} 소속 ${t.nick}이(가) 밤에 사망했습니다.`);
+      }
+    }
+  });
+
+  if(polTarget!=null){ const disp=pById(polRaw),real=pById(polTarget); if(disp&&real){ pm(polP.id,`${disp.nick} 조사 결과: [${ROLES[real.roleId]?.faction==='mafia'?'마피아 소속':'마피아 소속 아님'}]`); } }
+  if(gfTarget!=null){ const disp=pById(gfRaw),real=pById(gfTarget); if(disp&&real){ const wasKilled=!ps[real.id]?.alive; pm(gfP.id,wasKilled?`${disp.nick}을(를) 제거하였습니다.`:`${disp.nick}을(를) 제거하려 했으나 실패하였습니다.`); } }
+  if(hunTarget!=null){ const disp=pById(hunRaw),real=pById(hunTarget); if(disp&&real){ const u=abilityUsed[hunTarget]; pm(hunP.id,u!=null?`${disp.nick}이(가) ${pById(u)?.nick}에게 능력을 사용했습니다.`:`${disp.nick}은(는) 이번 밤 능력을 사용하지 않았습니다.`); } }
+  if(mafTarget!=null){ const disp=pById(mafRaw),real=pById(mafTarget); if(disp&&real){ const jobMsg=`${disp.nick}의 직업: [${ROLES[real.roleId]?.name}]`; pm(mafP.id,jobMsg); if(gfP) pm(gfP.id,`[마피아 일원 조사] ${jobMsg}`); const prostuP=Object.values(ps).find(p=>p.alive&&p.roleId==='PROSTITUTE'); if(prostuP) pm(prostuP.id,`[마피아 일원 조사] ${jobMsg}`); } }
+  if(docTarget!=null){ const disp=pById(docRaw),real=pById(docTarget); if(disp&&real){ const saved=killed.has(docTarget)||(vetTarget===docTarget&&!vetNoKill); pm(docP.id,saved?`${disp.nick}을(를) 살렸습니다!`:`${disp.nick}을(를) 치료했으나 위험하지 않았습니다.`); } }
+  if(parasiteRaw!=null){
+    const rawTarget=eff(parasiteP.id,parasiteRaw); const targetP=pById(rawTarget);
+    if(targetP&&targetP.roleId==='WITCH'){ pm(parasiteP.id,`${targetP.nick}을(를) 유혹하려 했으나 실패하였습니다.`); pm(rawTarget,"기생이 유혹하려했으나 실패하였습니다."); }
+    else if(parasiteTarget!=null){ const disp=pById(parasiteRaw); if(disp){ const isProstu=parasiteP.roleId==='PROSTITUTE'; pm(parasiteP.id,`${disp.nick}의 능력을 무효화했습니다.`); pm(parasiteTarget,"누군가에게 유혹당해 이번 밤 당신의 능력이 무효화되었습니다."); if(isProstu){ if(gfP&&gfP.id!==parasiteP.id) pm(gfP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); if(mafP&&mafP.id!==parasiteP.id) pm(mafP.id,`[창부 활동] ${disp.nick}의 능력을 무효화했습니다.`); } } }
+  }
+  if(witchAct&&witchAct.source!=null&&witchAct.target!=null){
+    if(witchBlockedByBus){
+      // 버스기사가 마녀의 조종을 거부
+      pm(witchP.id,`버스기사 [${pById(witchAct.source)?.nick}]가 탑승을 거부했습니다. 능력이 적용되지 않았습니다.`);
+    } else {
+      const s=pById(witchAct.source),t=pById(witchAct.target);
+      if(s&&t){
+        pm(witchP.id,`${s.nick}의 능력을 ${t.nick}에게 사용하게 했습니다.`);
+        pm(witchAct.source,"이번 밤 마녀가 당신의 정신을 혼란스럽게 했습니다. 능력이 의도치 않은 대상에게 사용되었을 수 있습니다.");
+      }
+    }
+  }
+  // Bus driver — 개인 알림 처리 (타깃 교환은 eff 함수에서 이미 처리됨)
+  if(busP0&&busAct0&&busAct0.source!=null&&busAct0.target!=null&&!nullified.has(busP0.id)){
+    const srcId=busAct0.source, tgtId=busAct0.target;
+    const srcP=ps[srcId], tgtP=ps[tgtId];
+    if(srcP&&tgtP){
+      pm(busP0.id,`${srcP.nick}과(와) ${tgtP.nick}의 위치를 바꾸었습니다.`);
+      pm(srcId,"버스기사가 당신을 찾아왔습니다. 이번 밤 당신의 위치가 바뀌었습니다.");
+      pm(tgtId,"버스기사가 당신을 찾아왔습니다. 이번 밤 당신의 위치가 바뀌었습니다.");
+    }
+  }
+  // Journalist
+  const journP=Object.values(ps).find(p=>p.alive&&p.roleId==='JOURNALIST');
+  const journRaw=journP?actions[journP.id]:null;
+  if(journRaw!=null&&!nullified.has(journP?.id)){
+    const target=pById(journRaw);
+    if(target){
+      if(target.roleId==='GODFATHER'&&!target._inherited) publicMsgs.push("알 수 없는 압력에 의해 보도가 중지되었습니다.");
+      else publicMsgs.push(`기자가 보도합니다: ${target.nick}의 직업은 [${ROLES[target.roleId]?.name}]입니다.`);
+      ps[journP.id]={...ps[journP.id],journalistUsed:true};
+    }
+  }
+  // 구조화된 공지 생성 (renderNightResultPhase에서 UI 카드로 표시)
+  const announcements = [];
+
+  // 사망자 공지 — ps에서 alive:false인 플레이어를 기준으로 표시 (eff로 이미 올바르게 계산됨)
+  Object.values(ps).filter(p=>!p.alive&&originalPlayers[p.id]?.alive).forEach(p=>{
+    const wasVetKill = p.id===vetTarget || (busRedirect[vetTarget]===p.id);
+    if(wasVetKill){
+      announcements.push({type:'death', icon:'🎖️', title:`${p.nick} 사망`, sub:`퇴역군인에게 사살 · ${ROLES[p.roleId]?.name} (${FN[ROLES[p.roleId]?.faction||'citizen']} 소속)`, faction:ROLES[p.roleId]?.faction});
+    } else {
+      announcements.push({type:'death', icon:'💀', title:`${p.nick} 사망`, sub:`${FN[ROLES[p.roleId]?.faction||'citizen']} 소속`, faction:ROLES[p.roleId]?.faction});
+    }
+  });
+
+  // 의사가 살린 공지 — 실제로 죽을 뻔한 경우 전체 공지 카드 생성
+  if(docTarget!=null){
+    const disp=pById(docRaw), real=pById(docTarget);
+    if(disp&&real){
+      // 실제로 대부/퇴역군인에게 타깃됐고 의사가 막은 경우
+      const gfWouldKill = gfTarget===docTarget;
+      const vetWouldKill = vetTarget===docTarget && !vetNoKill;
+      const saved = gfWouldKill || vetWouldKill;
+      if(saved){
+        announcements.push({
+          type:'saved',
+          icon:'💉',
+          title:`${real.nick} 생존!`,
+          sub:`의사가 극적으로 살려냈습니다`
+        });
+      }
+    }
+  }
+
+  // 창부 영입 공지
+  if(recruitedPlayer){
+    announcements.push({
+      type:'recruit',
+      icon:'💋',
+      title:'마피아 영입 발생',
+      sub:'기생 플레이어가 밤사이 마피아로 포섭되었습니다'
+    });
+  }
+
+  // 기자 보도 공지
+  const journP2=Object.values(ps).find(p=>p.roleId==='JOURNALIST');
+  if(journP2?.journalistUsed){
+    const jTarget=pById(journRaw);
+    if(jTarget&&!(jTarget.roleId==='GODFATHER'&&!jTarget._inherited)){
+      announcements.push({type:'expose', icon:'📰', title:`기자 보도`, sub:`${jTarget.nick}의 직업은 [${ROLES[jTarget.roleId]?.name}] 입니다`});
+    }
+  }
+
+  // 아무 일도 없었던 경우
+  if(announcements.length===0){
+    announcements.push({type:'quiet', icon:'🌙', title:'평온한 밤', sub:'이번 밤 아무 일도 일어나지 않았습니다'});
+  }
+
+  return {players:ps, publicMsgs, privateMsgs, announcements};
+}
+
+function checkWin(players){
+  const alive=Object.values(players).filter(p=>p.alive);
+  const mafia=alive.filter(p=>ROLES[p.roleId]?.faction==='mafia').length;
+  const citizen=alive.filter(p=>ROLES[p.roleId]?.faction==='citizen').length;
+  const neutral=alive.filter(p=>ROLES[p.roleId]?.faction==='neutral').length;
+  if(!alive.some(p=>p.roleId==='GODFATHER'&&!p._inherited)&&mafia===0) return 'citizen';
+  if(mafia>0&&mafia>=citizen+neutral) return 'mafia';
+  if(mafia===1&&citizen===1&&neutral===1) return 'neutral';
+  return null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AI HELPER FUNCTIONS
+// ──────────────────────────────────────────────────────────────────────────────
+function cpuPickTargetForAI(aiP, players, currentTurn){
+  const alive = Object.values(players).filter(p=>p.alive && p.id!==aiP.id);
+  if(!alive.length) return 'skip';
+  const roleId = aiP.roleId;
+  const isMafia = MAFIA_IDS.includes(roleId)||aiP._inherited;
+  if(isMafia){
+    const citizens=alive.filter(p=>!MAFIA_IDS.includes(p.roleId));
+    const t=citizens.length?citizens[Math.floor(Math.random()*citizens.length)]:alive[Math.floor(Math.random()*alive.length)];
+    return t.id;
+  }
+  if(roleId==='POLICE'){
+    const t=alive[Math.floor(Math.random()*alive.length)]; return t.id;
+  }
+  if(roleId==='DOCTOR'){
+    const all=Object.values(players).filter(p=>p.alive);
+    return all[Math.floor(Math.random()*all.length)].id;
+  }
+  if(roleId==='WITCH'||roleId==='BUSDRIVER'){
+    const a=alive[Math.floor(Math.random()*alive.length)];
+    const rest=alive.filter(p=>p.id!==a.id);
+    const b=rest.length?rest[Math.floor(Math.random()*rest.length)]:a;
+    return {source:a.id, target:b.id};
+  }
+  if(roleId==='VETERAN'){
+    // 퇴역군인은 정확히 2번째 밤에만 행동
+    if((currentTurn||1) !== 2) return 'skip';
+    // 대부는 타깃 불가
+    const nonGf=alive.filter(p=>p.roleId!=='GODFATHER'&&!p._inherited);
+    const mafia=nonGf.filter(p=>MAFIA_IDS.includes(p.roleId));
+    const t=mafia.length?mafia[Math.floor(Math.random()*mafia.length)]:nonGf[Math.floor(Math.random()*nonGf.length)];
+    if(!t) return 'skip';
+    return t.id;
+  }
+  const t=alive[Math.floor(Math.random()*alive.length)]; return t.id;
+}
+
+async function injectAIVotes(){
+  if(!isHost||!gameState) return;
+  const players = Object.values(gameState.players).filter(p=>p.alive&&p.isAI);
+  if(!players.length) return;
+  const alive = Object.values(gameState.players).filter(p=>p.alive);
+  const newVotes = {...(gameState.votes||{})};
+  players.forEach(aiP=>{
+    // AI (mafia) targets non-mafia; AI (citizen) targets randomly or suspected mafia
+    const isMafia = MAFIA_IDS.includes(aiP.roleId)||aiP._inherited;
+    const candidates = alive.filter(p=>p.id!==aiP.id);
+    if(!candidates.length) return;
+    let t;
+    if(isMafia){
+      const nonMafia=candidates.filter(p=>!MAFIA_IDS.includes(p.roleId));
+      t=nonMafia.length?nonMafia[Math.floor(Math.random()*nonMafia.length)]:candidates[Math.floor(Math.random()*candidates.length)];
+    } else {
+      const mafia=candidates.filter(p=>MAFIA_IDS.includes(p.roleId));
+      t=mafia.length&&Math.random()<0.4?mafia[Math.floor(Math.random()*mafia.length)]:candidates[Math.floor(Math.random()*candidates.length)];
+    }
+    newVotes[aiP.id]=t.id;
+  });
+  await update(ref(db,`rooms/${currentRoomId}/gameState`),{votes:newVotes});
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// END SCREEN
+// ──────────────────────────────────────────────────────────────────────────────
+function showEndScreen(result){
+  if(!result) return;
+  clearInterval(gameTimerInterval);
+  stopVoiceChat();
+  showScreen('sEnd');
+  const wc={mafia:'#e74c3c',citizen:'#1abc9c',neutral:'#9b59b6'};
+  const wl={mafia:'👑 마피아 승리',citizen:'🏅 시민 승리',neutral:'🧙 마녀 승리'};
+  const wd={mafia:'마피아가 마을을 장악했습니다.',citizen:'시민들이 대부를 찾아내 마을을 구했습니다!',neutral:'마녀가 절묘한 균형을 만들어 승리했습니다.'};
+  document.getElementById('endGlow').style.background=`radial-gradient(circle,${wc[result.winner]} 0%,transparent 70%)`;
+  document.getElementById('endTitle').textContent=wl[result.winner];
+  document.getElementById('endTitle').style.color=wc[result.winner];
+  document.getElementById('endSub').textContent=wd[result.winner];
+  // 게임 종료 TTS
+  const endMsg = {
+    mafia:'마피아가 마을을 장악했습니다. 마피아의 승리입니다.',
+    citizen:'시민들이 마피아를 모두 찾아냈습니다. 시민의 승리입니다!',
+    neutral:'마녀가 균형을 이루었습니다. 마녀의 승리입니다.'
+  };
+  speak(endMsg[result.winner]||'게임이 종료되었습니다.');
+  const players=Object.values(result.players||{});
+  document.getElementById('endPlayers').innerHTML=players.map(p=>{
+    const role=ROLES[p.roleId];
+    return `<div class="end-row${p.alive?'':' dead'}">
+      <span style="font-size:1.1rem;">${role?.emoji||'?'}</span>
+      <span style="flex:1;font-weight:600;">${esc(p.nick)}</span>
+      <span style="color:${FC[role?.faction||'citizen']};font-size:0.82rem;">${role?.name||''}</span>
+      ${!p.alive?'<span style="color:var(--red2);">💀</span>':''}
+    </div>`;
+  }).join('');
+}
+
+// 게임 로그 모달
+window.openGameLog = function(){
+  const modal = document.getElementById('gameLogModal');
+  const body  = document.getElementById('gameLogBody');
+  if(!modal||!body) return;
+
+  // chatMsgs에서 시스템 메시지만 필터링해서 로그로 표시
+  const chatEl = document.getElementById('chatMsgs');
+  if(!chatEl||!chatEl.innerHTML){
+    body.innerHTML = '<div style="color:var(--txt3);font-size:0.85rem;text-align:center;">저장된 로그가 없습니다.</div>';
+  } else {
+    // 시스템 채팅 메시지만 추출
+    const msgs = chatEl.querySelectorAll('.chat-msg');
+    let logHtml = '';
+    msgs.forEach(msg=>{
+      const nameEl = msg.querySelector('.chat-msg-name');
+      const textEl = msg.querySelector('.chat-msg-text');
+      if(!nameEl||!textEl) return;
+      const isSystem = nameEl.classList.contains('system-msg');
+      if(isSystem){
+        logHtml += `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.18);
+          border-radius:8px;padding:8px 12px;font-size:0.8rem;color:var(--gold);line-height:1.5;">
+          ${textEl.innerHTML}</div>`;
+      } else {
+        logHtml += `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
+          border-radius:8px;padding:7px 12px;font-size:0.78rem;line-height:1.5;">
+          <span style="font-size:0.68rem;color:var(--txt3);">${nameEl.innerHTML}&nbsp;</span>${textEl.innerHTML}</div>`;
+      }
+    });
+    body.innerHTML = logHtml || '<div style="color:var(--txt3);font-size:0.85rem;text-align:center;">채팅 로그가 없습니다.</div>';
+  }
+  modal.classList.remove('hidden');
+};
+
+window.resetAndGoHome = function(){
+  Object.keys(playerMemos).forEach(k=>delete playerMemos[k]);
+  _lastChatCount = 0;
+  const chatEl = document.getElementById('chatMsgs');
+  if(chatEl) chatEl.innerHTML = '';
+  currentRoomId = null; currentRoomData = null; myRole = null; gameState = null;
+  showScreen('sHome');
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CHAT
+// ──────────────────────────────────────────────────────────────────────────────
+window.sendChat = async function(){
+  const input=document.getElementById('chatInput');
+  const msg=input.value.trim();
+  if(!msg||!currentRoomId) return;
+  const phase=gameState?.phase||'waiting';
+  const isAlive=myRole?myRole.alive:true;
+  const isMafiaRole=myRole&&MAFIA_IDS.includes(myRole.roleId);
+
+  // 밤: 마피아(생존)만 일반 채팅, 사망자는 ghost 채팅
+  if(phase==='night'&&isAlive&&!isMafiaRole) return;
+
+  input.value='';
+  const chatRef=push(ref(db,`rooms/${currentRoomId}/chat`));
+
+  let msgType='normal';
+  if(!isAlive) msgType='ghost'; // 사망자 채팅
+  else if(phase==='night'&&isMafiaRole) msgType='mafia'; // 마피아 야간 채팅
+
+  await set(chatRef,{
+    senderId:myId,
+    nick:myNick,
+    text:msg,
+    type:msgType,
+    ts:Date.now()
+  });
+};
+
+let _lastChatCount = 0;
+function renderChat(chatData){
+  const msgs=Object.values(chatData).sort((a,b)=>a.ts-b.ts);
+  const el=document.getElementById('chatMsgs');
+  if(!el) return;
+  const isMafiaRole=myRole&&MAFIA_IDS.includes(myRole.roleId);
+  const isAliveMe=myRole?myRole.alive:true;
+  const filtered=msgs.filter(m=>{
+    if(m.type==='mafia'&&!isMafiaRole) return false;
+    // ghost 메시지: 사망자끼리만, 생존자에게는 안 보임
+    if(m.type==='ghost'&&isAliveMe) return false;
+    return true;
+  });
+  el.innerHTML=filtered.map(m=>{
+    if(m.type==='system') return `<div class="chat-msg"><div class="chat-msg-name system-msg">📢 시스템</div><div class="chat-msg-text system-chat">${esc(m.text)}</div></div>`;
+    if(m.type==='mafia') return `<div class="chat-msg"><div class="chat-msg-name mafia-msg">🔴 ${esc(m.nick)}</div><div class="chat-msg-text mafia-chat">${esc(m.text)}</div></div>`;
+    if(m.type==='ghost') return `<div class="chat-msg"><div class="chat-msg-name" style="color:var(--txt3);">👻 ${esc(m.nick)}</div><div class="chat-msg-text" style="opacity:0.6;font-style:italic;">${esc(m.text)}</div></div>`;
+    return `<div class="chat-msg"><div class="chat-msg-name">${esc(m.nick)}</div><div class="chat-msg-text">${esc(m.text)}</div></div>`;
+  }).join('');
+  // Auto-scroll if open
+  if(chatOpen) el.scrollTop=el.scrollHeight;
+  // Unread badge
+  const newCount = filtered.length;
+  if(newCount > _lastChatCount && !chatOpen && document.getElementById('sGame')?.classList.contains('active')){
+    chatUnreadCount += newCount - _lastChatCount;
+    const dot = document.getElementById('chatUnreadDot');
+    if(dot) dot.style.display='block';
+  }
+  _lastChatCount = newCount;
+}
+
+async function sendSystemChat(text){
+  const chatRef=push(ref(db,`rooms/${currentRoomId}/chat`));
+  await set(chatRef,{senderId:'system',nick:'시스템',text,type:'system',ts:Date.now()});
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VOICE CHAT (WebRTC + Firebase signaling)
+// ──────────────────────────────────────────────────────────────────────────────
+async function startVoiceChat(room){
+  try {
+    if(!localStream){
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true },
+        video:false
+      });
+      isMicOn = true;
+      updateMicUI();
+    }
+    await ensureVoiceConnected();
+  } catch(e){
+    toast('마이크 권한이 필요합니다. 음성채팅 없이 진행합니다.','error');
+  }
+}
+
+function stopVoiceChat(){
+  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  Object.values(peerConnections).forEach(pc=>{ try{ pc.close(); }catch(e){} });
+  peerConnections={};
+  if(signalingListener&&currentRoomId){
+    try{ off(ref(db,`rooms/${currentRoomId}/signaling`),'value',signalingListener); }catch(e){}
+    signalingListener=null;
+  }
+  // 오디오 엘리먼트 정리
+  document.querySelectorAll('audio[id^="audio-"]').forEach(el=>{ el.srcObject=null; el.remove(); });
+  isMicOn=false;
+  updateMicUI();
+}
+
+async function createPeerConnection(peerId, isInitiator){
+  if(peerConnections[peerId]) return;
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+  peerConnections[peerId] = pc;
+
+  // 로컬 스트림 추가
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+
+  // 원격 오디오 재생
+  pc.ontrack = e=>{
+    let audio = document.getElementById(`audio-${peerId}`);
+    if(!audio){
+      audio = document.createElement('audio');
+      audio.id = `audio-${peerId}`;
+      audio.autoplay = true;
+      audio.playsInline = true;
+      document.body.appendChild(audio);
+    }
+    if(audio.srcObject !== e.streams[0]) audio.srcObject = e.streams[0];
+  };
+
+  // ICE candidate → Firebase 시그널링
+  pc.onicecandidate = e=>{
+    if(e.candidate){
+      push(ref(db,`rooms/${currentRoomId}/signaling`), {
+        from:myId, to:peerId, type:'candidate',
+        candidate:JSON.stringify(e.candidate), ts:Date.now()
+      });
+    }
+  };
+
+  // 연결 상태 모니터링 — 실패 시 재연결
+  pc.oniceconnectionstatechange = ()=>{
+    if(pc.iceConnectionState==='failed'){
+      pc.restartIce();
+    }
+    if(pc.iceConnectionState==='disconnected'||pc.iceConnectionState==='closed'){
+      delete peerConnections[peerId];
+    }
+  };
+
+  if(isInitiator){
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    push(ref(db,`rooms/${currentRoomId}/signaling`), {
+      from:myId, to:peerId, type:'offer',
+      sdp:offer.sdp, ts:Date.now()
+    });
+  }
+}
+
+// 음성채팅 연결 보장 헬퍼 — 어느 화면에서든 호출 가능
+async function ensureVoiceConnected(){
+  if(!currentRoomId) return;
+  // signalingListener가 없거나 방이 바뀌었으면 재시작
+  if(!signalingListener) listenSignaling();
+  // 현재 방의 모든 인간 플레이어와 P2P 연결
+  const roomPlayers = Object.keys((currentRoomData||{}).players||{})
+    .filter(id=>id!==myId && !id.startsWith('ai_'));
+  for(const peerId of roomPlayers){
+    if(!peerConnections[peerId]) await createPeerConnection(peerId, myId < peerId);
+  }
+}
+
+function listenSignaling(){
+  // 이미 같은 방 리스너가 있으면 재사용
+  if(signalingListener) return;
+  if(!currentRoomId){ console.warn('listenSignaling: no currentRoomId'); return; }
+  const sigRef = ref(db,`rooms/${currentRoomId}/signaling`);
+  signalingListener = onValue(sigRef, async snap=>{
+    if(!snap.exists()) return;
+    const entries = Object.entries(snap.val());
+    for(const [key, sig] of entries){
+      if(sig.to !== myId || sig.processed) continue;
+      update(ref(db,`rooms/${currentRoomId}/signaling/${key}`),{processed:true});
+      const from = sig.from;
+      try {
+        if(sig.type==='offer'){
+          // 기존 연결이 있으면 닫고 재연결
+          if(peerConnections[from]){
+            const state = peerConnections[from].signalingState;
+            if(state === 'stable' || state === 'have-local-offer'){
+              // stable: 새 offer 수신 → 기존 연결 재활용
+            } else {
+              peerConnections[from].close();
+              delete peerConnections[from];
+            }
+          }
+          if(!peerConnections[from]) await createPeerConnection(from, false);
+          const pc = peerConnections[from];
+          // stable 또는 have-remote-offer가 아닐 때만 처리
+          if(pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer'){
+            await pc.setRemoteDescription({type:'offer', sdp:sig.sdp});
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            push(ref(db,`rooms/${currentRoomId}/signaling`), {
+              from:myId, to:from, type:'answer',
+              sdp:answer.sdp, ts:Date.now()
+            });
+          }
+        } else if(sig.type==='answer'){
+          const pc = peerConnections[from];
+          if(pc && pc.signalingState === 'have-local-offer'){
+            await pc.setRemoteDescription({type:'answer', sdp:sig.sdp});
+          }
+        } else if(sig.type==='candidate'){
+          const pc = peerConnections[from];
+          if(pc && pc.remoteDescription){
+            try{ await pc.addIceCandidate(JSON.parse(sig.candidate)); }catch(e){}
+          }
+        }
+      } catch(e){ console.warn('Signaling error:', e); }
+    }
+  });
+}
+
+function updateVoiceChannelAccess(){
+  if(!localStream) return;
+  const phase=gameState?.phase||'waiting';
+  const isAlive=myRole?myRole.alive:true;
+  const isMafiaRole=myRole&&MAFIA_IDS.includes(myRole.roleId);
+
+  // 원격 오디오 mute/unmute
+  Object.keys(peerConnections).forEach(peerId=>{
+    const audio = document.getElementById(`audio-${peerId}`);
+    if(!audio) return;
+    const peerPlayer = gameState?.players?.[peerId];
+    const peerIsMafia = peerPlayer && MAFIA_IDS.includes(peerPlayer.roleId);
+    const peerAlive = peerPlayer?.alive !== false;
+    let canHear = false;
+    if(phase==='night'){
+      if(!isAlive && !peerAlive) canHear = true;          // 사망자↔사망자
+      else canHear = isMafiaRole && isAlive && peerIsMafia && peerAlive; // 마피아끼리
+    } else {
+      // 낮: 생존자끼리 OR 사망자끼리만 (생존자↔사망자 차단)
+      if(isAlive && peerAlive) canHear = true;
+      if(!isAlive && !peerAlive) canHear = true;
+    }
+    audio.muted = !canHear;
+  });
+
+  // 로컬 마이크 enable/disable
+  let canSpeak = false;
+  if(phase==='night'){
+    canSpeak = (!isAlive) || (isMafiaRole && isAlive); // 사망자 or 마피아
+  } else {
+    canSpeak = true; // 생존자·사망자 모두 말할 수 있음 (듣는 쪽에서 mute 처리)
+  }
+  localStream.getAudioTracks().forEach(t=>{ t.enabled=canSpeak&&isMicOn; });
+  const voiceLabel=document.getElementById('voiceLabel');
+  const voiceDot=document.getElementById('voiceDot');
+  if(phase==='night'&&isMafiaRole&&isAlive){
+    if(voiceLabel) voiceLabel.textContent='마피아 음성채팅 활성';
+    if(voiceDot) voiceDot.className='voice-dot mafia';
+  } else if(phase==='night'&&!isAlive){
+    if(voiceLabel) voiceLabel.textContent='👻 사망자 채널';
+    if(voiceDot) voiceDot.className='voice-dot active';
+  } else if(phase==='night'){
+    if(voiceLabel) voiceLabel.textContent='밤: 음성채팅 제한됨';
+    if(voiceDot) voiceDot.className='voice-dot';
+  } else if(!isAlive){
+    if(voiceLabel) voiceLabel.textContent='👻 사망자 채널 활성';
+    if(voiceDot) voiceDot.className='voice-dot active';
+  } else {
+    if(voiceLabel) voiceLabel.textContent='음성채팅 활성';
+    if(voiceDot) voiceDot.className='voice-dot active';
+  }
+}
+
+
+
+window.toggleMic = async function(){
+  if(!localStream){
+    // 마이크 미연결 시 재시도
+    await initLobbyMic();
+    return;
+  }
+  isMicOn=!isMicOn;
+  if(localStream) localStream.getAudioTracks().forEach(t=>{ t.enabled=isMicOn; });
+  updateMicUI();
+  if(gameState) updateVoiceChannelAccess();
+};
+
+function updateMicUI(){
+  // In-game header mic button
+  // 켜진 상태 → "🔇" (누르면 끔), 꺼진 상태 → "🎙️" (누르면 켬)
+  const gameBtn = document.getElementById('micBtn');
+  if(gameBtn){
+    gameBtn.textContent = isMicOn ? '🔇' : '🎙️';
+    gameBtn.className   = isMicOn ? 'game-header-mic' : 'game-header-mic muted';
+    gameBtn.title       = isMicOn ? '마이크 활성 — 탭해서 음소거' : '마이크 음소거 — 탭해서 켜기';
+  }
+  // Lobby mic button
+  const lobbyBtn = document.getElementById('micToggleBtn');
+  if(lobbyBtn){
+    lobbyBtn.textContent = isMicOn ? '🔇 음소거' : '🎙️ 켜기';
+    lobbyBtn.className   = isMicOn ? 'btn btn-outline btn-sm' : 'btn btn-red btn-sm';
+  }
+}
+
+let chatOpen = false;
+let chatUnreadCount = 0;
+
+window.toggleChatDrawer = function(){
+  chatOpen = !chatOpen;
+  const drawer = document.getElementById('chatDrawer');
+  const overlay = document.getElementById('chatOverlay');
+  if(drawer) drawer.classList.toggle('open', chatOpen);
+  if(overlay) overlay.classList.toggle('visible', chatOpen);
+  if(chatOpen){
+    chatUnreadCount = 0;
+    const dot = document.getElementById('chatUnreadDot');
+    if(dot) dot.style.display='none';
+    // Scroll to bottom
+    const msgs = document.getElementById('chatMsgs');
+    if(msgs) setTimeout(()=>{msgs.scrollTop=msgs.scrollHeight;},100);
+  }
+};
+
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PLAYER CLICK (voting / selection)
+// ──────────────────────────────────────────────────────────────────────────────
+window.clickPlayer = function(id){
+  const phase=gameState?.phase;
+  if(!phase) return;
+  if(phase==='day'){
+    // 낮 토론 중: 플레이어 탭 → 메모 모달 열기
+    openMemo(id);
+    return;
+  }
+  if(phase==='vote'&&myRole?.alive&&id!==myId){
+    castVote(id);
+    document.querySelectorAll('.ps-item').forEach(el=>el.classList.remove('ps-selected'));
+    const el=document.querySelector(`.ps-item[onclick*='${id}']`);
+    if(el) el.classList.add('ps-selected');
+  }
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 플레이어 메모 (로컬 저장, 게임 세션 동안 유지)
+// ──────────────────────────────────────────────────────────────────────────────
+const playerMemos = {}; // { playerId: { tags:[], text:'' } }
+let memoTargetId = null;
+
+window.openMemo = function(id){
+  const p = gameState?.players?.[id];
+  if(!p) return;
+  memoTargetId = id;
+
+  // 아바타 & 이름
+  document.getElementById('memoAvatar').textContent = (p.nick||'?')[0];
+  document.getElementById('memoPlayerName').textContent = p.nick + (p.alive ? '' : ' 💀');
+
+  // 저장된 메모 불러오기
+  const saved = playerMemos[id] || {tags:[], text:''};
+  document.getElementById('memoTextarea').value = saved.text;
+
+  // 태그 상태 복원
+  document.querySelectorAll('.memo-tag').forEach(btn=>{
+    const tag = btn.getAttribute('data-tag');
+    if(saved.tags.includes(tag)){
+      btn.classList.add('active');
+      btn.style.background = btn.style.borderColor;
+    } else {
+      btn.classList.remove('active');
+      btn.style.background = 'transparent';
+    }
+  });
+
+  document.getElementById('memoOverlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('memoTextarea').focus(), 200);
+};
+
+window.closeMemo = function(){
+  document.getElementById('memoOverlay').classList.add('hidden');
+  memoTargetId = null;
+};
+
+window.closeMemoIfOutside = function(e){
+  if(e.target === document.getElementById('memoOverlay')) closeMemo();
+};
+
+window.toggleMemoTag = function(btn, tag){
+  btn.classList.toggle('active');
+  if(btn.classList.contains('active')){
+    btn.style.background = btn.style.borderColor;
+    btn.style.color = '#fff';
+  } else {
+    btn.style.background = 'transparent';
+    // 색상 원래대로
+    const colors = {
+      '🔴 마피아 의심':'#e74c3c','✅ 시민 확인':'#1abc9c',
+      '⚠️ 요주의':'#f39c12','🔍 조사 대상':'#9b59b6','💬 발언 이상':'#3498db'
+    };
+    btn.style.color = colors[tag] || 'var(--txt2)';
+  }
+};
+
+window.saveMemo = function(){
+  if(!memoTargetId) return;
+  const text = document.getElementById('memoTextarea').value.trim();
+  const tags = [...document.querySelectorAll('.memo-tag.active')].map(b=>b.getAttribute('data-tag'));
+  playerMemos[memoTargetId] = {tags, text};
+  closeMemo();
+  renderPlayerStrip(); // 메모 있는 플레이어에 점 표시 갱신
+  toast('메모가 저장되었습니다','success');
+};
+
+window.clearMemo = function(){
+  document.getElementById('memoTextarea').value = '';
+  document.querySelectorAll('.memo-tag').forEach(btn=>{
+    btn.classList.remove('active');
+    btn.style.background = 'transparent';
+    const colors = {
+      '🔴 마피아 의심':'#e74c3c','✅ 시민 확인':'#1abc9c',
+      '⚠️ 요주의':'#f39c12','🔍 조사 대상':'#9b59b6','💬 발언 이상':'#3498db'
+    };
+    const tag = btn.getAttribute('data-tag');
+    btn.style.color = colors[tag] || 'var(--txt2)';
+  });
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HELP MODAL
+// ──────────────────────────────────────────────────────────────────────────────
+window.openHelp = function(){
+  const activeScreen = document.querySelector('.screen.active')?.id;
+  let n;
+  if(activeScreen === 'sGame' && gameState){
+    n = Object.keys(gameState.players||{}).length;
+  } else if(activeScreen === 'sRoomLobby' && currentRoomData){
+    n = currentRoomData.maxPlayers;
+  } else {
+    n = createPlayerCount; // 방만들기 화면
+  }
+  const roles = getRoleSet(n);
+  const order=['mafia','citizen','neutral'];
+  const flabel={mafia:'⚔️ 마피아 진영',citizen:'🏘️ 시민 진영',neutral:'🌀 중립'};
+  const body=document.getElementById('helpModalBody');
+  body.innerHTML='';
+  order.forEach(faction=>{
+    const fr=roles.filter(r=>r.faction===faction);
+    if(!fr.length) return;
+    body.innerHTML+=`<div style="font-size:0.68rem;color:var(--txt3);letter-spacing:0.1em;text-transform:uppercase;margin-top:4px;">${flabel[faction]}</div>`;
+    fr.forEach(r=>{
+      body.innerHTML+=`<div class="role-row-help ${faction}"><div style="font-size:1.5rem;">${r.emoji}</div><div><div style="font-size:0.88rem;font-weight:700;color:${FC[faction]}">${r.name}</div><div style="font-size:0.68rem;color:var(--txt3);margin-bottom:2px;">${FN[faction]} 소속</div><div style="font-size:0.75rem;color:var(--txt2);line-height:1.6;white-space:pre-line;">${ROLE_DESC[r.id]||''}</div></div></div>`;
+    });
+  });
+  document.getElementById('helpModal').classList.remove('hidden');
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// TOAST
+// ──────────────────────────────────────────────────────────────────────────────
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  const icons={success:'✅',error:'❌',info:'ℹ️'};
+  el.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${esc(msg)}</span>`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+window.toast = toast;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────────────────────────────────────
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function formatTime(s){ const m=Math.floor(s/60),sec=s%60; return s>=60?`${m}:${String(sec).padStart(2,'0')}`:`${s}초`; }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// START
+// ──────────────────────────────────────────────────────────────────────────────
+init();
+
+// Handle room start countdown (host waits 10s after all ready)
+let startCountdown=null;
+function maybeStartCountdown(room){
+  const players=Object.values(room.players||{});
+  const allReady=players.every(p=>p.id===room.hostId||p.ready);
+  const full=players.length>=room.maxPlayers;
+  if(full&&allReady&&isHost&&!startCountdown){
+    let t=10;
+    document.getElementById('lobbyCountdownBar').style.display='';
+    startCountdown=setInterval(async ()=>{
+      t--;
+      document.getElementById('lobbyCountdownFill').style.width=`${(t/10)*100}%`;
+      if(t<=0){ clearInterval(startCountdown); startCountdown=null; await requestStartGame(); }
+    },1000);
+  } else if((!full||!allReady)&&startCountdown){
+    clearInterval(startCountdown); startCountdown=null;
+    document.getElementById('lobbyCountdownBar').style.display='none';
+    document.getElementById('lobbyCountdownFill').style.width='100%';
+  }
+}
+
+// Override handleRoomUpdate to also check countdown
+const _orig=handleRoomUpdate;
+function handleRoomUpdate2(room){
+  _orig(room);
+  if(document.querySelector('.screen.active')?.id==='sRoomLobby'&&room.status==='waiting') maybeStartCountdown(room);
+}
+// Re-bind
+if(roomListener){ off(ref(db,`rooms/${currentRoomId}`),'value',roomListener); }
+
+</script>
+</body>
+</html>
