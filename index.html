@@ -974,7 +974,6 @@ let nightActionDone = false;
 let pendingJoinRoomId = null;
 let myReady = false;
 let createPlayerCount = 6;
-let isSpectator = false; // 관전자 여부
 
 // WebRTC Voice Chat state
 let localStream = null;
@@ -988,23 +987,31 @@ let signalingListener = null;
 // ──────────────────────────────────────────────────────────────────────────────
 const ICE_SERVERS = {
   iceServers: [
-// STUN 서버 (공인 IP 확인용 — 무료)
-{ urls: 'stun:stun.l.google.com:19302' },
-{ urls: 'stun:stun1.l.google.com:19302' },
-// ExpressTurn TURN 서버
-{
-urls: 'turn:relay1.expressturn.com:3478',
-username: '000000002092830308',
-credential: 'gARl8oLocjTEKdZTtn/tw96+PI0='
-},
-// TCP 포트도 추가 (443 막힌 환경 대비)
-{
-urls: 'turn:relay1.expressturn.com:3478?transport=tcp',
-username: '000000002092830308',
-credential: 'gARl8oLocjTEKdZTtn/tw96+PI0='
-}
- ]
-};
+      {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "7394d2842fd6b96b89f0b170",
+        credential: "QFfKI7y0e/7URYSx",
+      },
+  ],
+});
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 사회자 TTS
@@ -1138,33 +1145,17 @@ window.loadRoomList = async function(){
       return;
     }
     const rooms = snap.val();
-    // 대기 중 + 게임 중 방 모두 표시 (비밀번호 방 제외, 빈 방 제외)
-    const items = Object.entries(rooms).filter(([id,r])=>
-      !r.password && Object.keys(r.players||{}).length > 0 &&
-      (r.status==='waiting' || r.status==='playing')
-    );
+    const items = Object.entries(rooms).filter(([id,r])=>!r.password && r.status==='waiting' && Object.keys(r.players||{}).length > 0 && Object.keys(r.players||{}).length < r.maxPlayers);
     if(!items.length){
-      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏜️</div><div class="empty-text">공개 방이 없습니다</div></div>';
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏜️</div><div class="empty-text">참가 가능한 방이 없습니다</div></div>';
       return;
     }
     body.innerHTML = items.map(([id,r])=>{
       const cnt = Object.keys(r.players||{}).length;
-      const isPlaying = r.status==='playing';
-      const isFull = cnt >= r.maxPlayers;
-      // 대기 중이고 자리 있으면 참가, 게임 중이면 관전
-      const canJoin = !isPlaying && !isFull;
-      const canSpectate = isPlaying;
-      const statusLabel = isPlaying
-        ? `<div class="room-item-status status-playing">게임 중</div>`
-        : `<div class="room-item-status status-waiting">대기 중</div>`;
-      const spectateBtn = canSpectate
-        ? `<button class="btn btn-outline btn-sm" style="padding:5px 10px;font-size:0.72rem;" onclick="event.stopPropagation();joinAsSpectator('${id}')">👁 관전</button>`
-        : '';
-      return `<div class="room-item${canJoin?'':' opacity-60'}" onclick="${canJoin?`joinRoom('${id}')`:''}" style="${canJoin?'':'cursor:default;opacity:0.75;'}">
+      return `<div class="room-item" onclick="joinRoom('${id}')">
         <div class="room-item-name">${esc(r.name)}</div>
         <div class="room-item-count">${cnt}/${r.maxPlayers}명</div>
-        ${statusLabel}
-        ${spectateBtn}
+        <div class="room-item-status status-waiting">대기 중</div>
       </div>`;
     }).join('');
   } catch(e){
@@ -1219,37 +1210,6 @@ window.createRoom = async function(){
 // ──────────────────────────────────────────────────────────────────────────────
 window.showJoinByCode = function(){
   document.getElementById('joinCodeModal').classList.remove('hidden');
-};
-
-// 관전자로 참가
-window.joinAsSpectator = async function(roomId){
-  try {
-    const snap = await get(ref(db,`rooms/${roomId}`));
-    if(!snap.exists()){ toast('방이 없습니다','error'); return; }
-    const room = snap.val();
-    if(room.status!=='playing'){ toast('게임 중인 방에만 관전 참가할 수 있습니다','error'); return; }
-    isSpectator = true;
-    currentRoomId = roomId;
-    // 관전자는 players에 추가하지 않고 spectators에 추가
-    await update(ref(db,`rooms/${roomId}/spectators/${myId}`),{
-      id:myId, nick:myNick, joinedAt:Date.now()
-    });
-    onDisconnect(ref(db,`rooms/${roomId}/spectators/${myId}`)).remove();
-    listenRoom(roomId);
-    showScreen('sGame');
-    // gameState 세팅
-    currentRoomData = room;
-    gameState = room.gameState;
-    myRole = null; // 관전자는 역할 없음
-    renderGameSidebar();
-    renderGamePhase();
-    startVoiceChat(room); // 듣기용으로 연결 (마이크는 비활성)
-    listenNightActions();
-    toast('👁 관전 모드로 참가했습니다. 채팅만 가능하며 음성은 듣기 전용입니다.','info');
-  } catch(e){
-    isSpectator = false;
-    toast('관전 참가 실패: '+(e.message||'오류'),'error');
-  }
 };
 
 window.joinByCode = async function(){
@@ -1700,11 +1660,7 @@ function renderGamePhase(){
 
   // Chat drawer title + input visibility
   const chatInputRow = document.getElementById('chatInputRow');
-  if(isSpectator){
-    // 관전자: 사망자 채널로만 채팅 가능
-    document.getElementById('chatTitle').textContent = '👁 관전자 채팅 (사망자 채널)';
-    if(chatInputRow) chatInputRow.style.display = 'flex';
-  } else if(phase==='night'){
+  if(phase==='night'){
     if(isMafiaRole&&isAlive){
       document.getElementById('chatTitle').textContent = '🔴 마피아 전용 채팅';
       if(chatInputRow) chatInputRow.style.display = 'flex';
@@ -1717,10 +1673,10 @@ function renderGamePhase(){
     }
   } else if(phase==='day'||phase==='vote'){
     document.getElementById('chatTitle').textContent = isAlive ? '💬 채팅' : '👻 사망자 채팅';
-    if(chatInputRow) chatInputRow.style.display = 'flex';
+    if(chatInputRow) chatInputRow.style.display = 'flex'; // 사망자도 채팅 가능
   } else {
     document.getElementById('chatTitle').textContent = '💬 채팅';
-    if(chatInputRow) chatInputRow.style.display = isAlive ? 'none' : 'flex';
+    if(chatInputRow) chatInputRow.style.display = isAlive ? 'none' : 'flex'; // 사망자는 항상 채팅 가능
   }
   // Close chat drawer on phase change
   if(chatOpen){ chatOpen=false; const d=document.getElementById('chatDrawer'); const o=document.getElementById('chatOverlay'); if(d) d.classList.remove('open'); if(o) o.classList.remove('visible'); }
@@ -1798,16 +1754,6 @@ function updateTimerDisplay(){
 // ──────────────────────────────────────────────────────────────────────────────
 function renderRoleRevealPhase(area){
   const p = myRole;
-  if(isSpectator){
-    area.innerHTML = `<div class="role-card">
-      <div class="role-emoji-big">👁</div>
-      <div class="role-name-big" style="color:var(--txt2)">관전자</div>
-      <div class="role-faction-txt">게임을 지켜보는 중</div>
-      <div class="role-desc-box">사망자들과 채팅·음성채팅이 가능합니다.
-게임 진행에는 참여할 수 없습니다.</div>
-    </div>`;
-    return;
-  }
   if(!p){ area.innerHTML='<div class="wait-txt">데이터 로딩 중...</div>'; return; }
   const role = ROLES[p.roleId];
   const MAFIA_IDS2 = ["GODFATHER","MAFIA","PROSTITUTE"];
@@ -1973,36 +1919,14 @@ function renderNightPhase(area){
   const nightActions = gameState.nightActions||{};
   const nightQueue = gameState.nightQueue||[];
 
-  // 관전자 화면
-  if(isSpectator){
-    const doneCount = nightQueue.filter(id=>nightActions[id]!==undefined).length;
-    const totalCount = nightQueue.filter(id=>!(gameState.players[id]?.isAI)).length;
-    area.innerHTML = `<div class="night-wait-box">
-      <div style="font-size:2.5rem;">👁</div>
-      <div style="font-weight:700;color:var(--txt2);font-size:0.9rem;">관전 중</div>
-      <div class="wait-txt">게임이 진행 중입니다.<br>사망자 채팅·음성채팅만 가능합니다.</div>
-      <div style="font-size:0.8rem;color:var(--teal);margin-top:4px;">${doneCount}/${totalCount}명 행동 완료</div>
-    </div>`;
-    return;
-  }
-
   // 능력 없는 플레이어 (사망 포함) — 대기 화면
   if(!p || !p.alive || !nightQueue.includes(myId)){
+    // 제출 현황 계산
     const doneCount = nightQueue.filter(id=>nightActions[id]!==undefined).length;
-    const totalCount = nightQueue.filter(id=>!(gameState.players[id]?.isAI)).length;
-    const role = p ? ROLES[p.roleId] : null;
-    // 살아있지만 큐에 없는 경우 → 이번 밤 능력 사용 불가 (퇴역군인 turn≠2, 기자 이미 사용 등)
-    const noAbilityThisNight = p && p.alive && !nightQueue.includes(myId);
-    let reasonTxt = '';
-    if(noAbilityThisNight){
-      if(p.roleId==='VETERAN') reasonTxt = '퇴역군인은 2번째 밤에만 능력을 사용할 수 있습니다.';
-      else if(p.roleId==='JOURNALIST') reasonTxt = '기자의 보도는 이미 사용되었습니다.';
-      else reasonTxt = '이번 밤 능력을 사용할 수 없습니다.';
-    }
+    const totalCount = nightQueue.filter(id=>!(gameState.players[id]?.isAI)).length; // AI 제외
     area.innerHTML = `<div class="night-wait-box">
-      <div style="font-size:2.5rem;">${!p||!p.alive ? '💀' : (role?.emoji||'😴')}</div>
-      ${role&&noAbilityThisNight?`<div style="font-weight:700;color:${FC[role.faction]};font-size:0.9rem;">${role.name}</div>`:''}
-      <div class="wait-txt">${!p||!p.alive ? '사망 — 관전 중입니다.' : reasonTxt}<br>다른 플레이어들의 행동을 기다리세요.</div>
+      <div style="font-size:2.5rem;">${!p||!p.alive ? '💀' : '😴'}</div>
+      <div class="wait-txt">${!p||!p.alive ? '사망 — 관전 중입니다.' : '이번 밤 능력이 없습니다.'}<br>다른 플레이어들의 행동을 기다리세요.</div>
       <div style="font-size:0.8rem;color:var(--teal);margin-top:4px;">${doneCount}/${totalCount}명 행동 완료</div>
       <div style="font-size:0.72rem;color:var(--txt3);">💬 마피아라면 채팅 버튼으로 팀원과 대화하세요</div>
     </div>`;
@@ -2043,9 +1967,9 @@ function renderNightPhase(area){
     DOCTOR:"살릴 플레이어를 선택하세요 (자신 포함 가능)",
     HUNTER:"추적할 플레이어를 선택하세요",
     PARASITE:"능력을 무효화할 플레이어를 선택하세요",
-    VETERAN:gameState.turn===2?"사살할 플레이어를 선택하세요\n(대부 선택 시 공격 실패)\n선택하지 않으면 건너뛰기":"이번 밤은 대기 상태 (2번째 밤에만 발동)",
+    VETERAN:gameState.turn===2?"사살할 플레이어를 선택하세요\n(대부 선택 시 공격 실패)":"이번 밤은 대기 상태 (2번째 밤에만 발동)",
     WITCH:witchStep===1?"능력을 빌릴 플레이어(A)를 선택하세요":`능력을 적용할 플레이어(B)를 선택하세요\n(A: ${esc(Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'')}`,
-    JOURNALIST:"직업을 전체 공개할 플레이어를 선택하세요\n(단 1회 사용 가능 — 건너뛰면 이번 밤 보도 없음)",
+    JOURNALIST:"직업을 전체 공개할 플레이어를 선택하세요\n(단 1회 사용 가능)",
     BUSDRIVER:witchStep===1?"위치를 바꿀 첫 번째 플레이어(A)를 선택하세요":`두 번째 플레이어(B)를 선택하세요\n(A: ${esc(Object.values(gameState.players).find(q=>q.id===witchSrc)?.nick||'')}`,
   };
   let mafiaTeamHtml='';
@@ -2720,7 +2644,7 @@ function resolveNightActions(players, actionsRaw, turn){
   if(gfTarget!=null){ const disp=pById(gfRaw),real=pById(gfTarget); if(disp&&real){ const wasKilled=!ps[real.id]?.alive; pm(gfP.id,wasKilled?`${disp.nick}을(를) 제거하였습니다.`:`${disp.nick}을(를) 제거하려 했으나 실패하였습니다.`); } }
   if(hunTarget!=null){ const disp=pById(hunRaw),real=pById(hunTarget); if(disp&&real){ const u=abilityUsed[hunTarget]; pm(hunP.id,u!=null?`${disp.nick}이(가) ${pById(u)?.nick}에게 능력을 사용했습니다.`:`${disp.nick}은(는) 이번 밤 능력을 사용하지 않았습니다.`); } }
   if(mafTarget!=null){ const disp=pById(mafRaw),real=pById(mafTarget); if(disp&&real){ const jobMsg=`${disp.nick}의 직업: [${ROLES[real.roleId]?.name}]`; pm(mafP.id,jobMsg); if(gfP) pm(gfP.id,`[마피아 일원 조사] ${jobMsg}`); const prostuP=Object.values(ps).find(p=>p.alive&&p.roleId==='PROSTITUTE'); if(prostuP) pm(prostuP.id,`[마피아 일원 조사] ${jobMsg}`); } }
-  if(docTarget!=null){ const disp=pById(docRaw),real=pById(docTarget); if(disp&&real){ const docActuallySaved=(gfTarget===docTarget)||(vetTarget===docTarget&&!vetNoKill); pm(docP.id,docActuallySaved?`💉 [${disp.nick}]을(를) 극적으로 살려냈습니다!`:`${disp.nick}을(를) 치료했으나 위험하지 않았습니다.`); } }
+  if(docTarget!=null){ const disp=pById(docRaw),real=pById(docTarget); if(disp&&real){ const saved=killed.has(docTarget)||(vetTarget===docTarget&&!vetNoKill); pm(docP.id,saved?`${disp.nick}을(를) 살렸습니다!`:`${disp.nick}을(를) 치료했으나 위험하지 않았습니다.`); } }
   if(parasiteRaw!=null){
     const rawTarget=eff(parasiteP.id,parasiteRaw); const targetP=pById(rawTarget);
     if(targetP&&targetP.roleId==='WITCH'){ pm(parasiteP.id,`${targetP.nick}을(를) 유혹하려 했으나 실패하였습니다.`); pm(rawTarget,"기생이 유혹하려했으나 실패하였습니다."); }
@@ -2966,7 +2890,6 @@ window.resetAndGoHome = function(){
   const chatEl = document.getElementById('chatMsgs');
   if(chatEl) chatEl.innerHTML = '';
   currentRoomId = null; currentRoomData = null; myRole = null; gameState = null;
-  isSpectator = false;
   showScreen('sHome');
 };
 
@@ -2980,14 +2903,6 @@ window.sendChat = async function(){
   const phase=gameState?.phase||'waiting';
   const isAlive=myRole?myRole.alive:true;
   const isMafiaRole=myRole&&MAFIA_IDS.includes(myRole.roleId);
-
-  // 관전자는 ghost 채팅만 가능
-  if(isSpectator){
-    input.value='';
-    const chatRef=push(ref(db,`rooms/${currentRoomId}/chat`));
-    await set(chatRef,{senderId:myId,nick:`👁${myNick}`,text:msg,type:'ghost',ts:Date.now()});
-    return;
-  }
 
   // 밤: 마피아(생존)만 일반 채팅, 사망자는 ghost 채팅
   if(phase==='night'&&isAlive&&!isMafiaRole) return;
@@ -3207,37 +3122,28 @@ function updateVoiceChannelAccess(){
     const peerIsMafia = peerPlayer && MAFIA_IDS.includes(peerPlayer.roleId);
     const peerAlive = peerPlayer?.alive !== false;
     let canHear = false;
-    const peerIsSpectator = !gameState?.players?.[peerId]; // spectators에만 있는 경우
-    if(isSpectator){
-      // 관전자: 모든 채널 듣기 가능 (단 마피아 야간 채팅 제외)
-      const peerIsMafianight = phase==='night' && peerIsMafia && peerAlive;
-      canHear = !peerIsMafianight; // 마피아 야간 대화만 차단, 나머지 다 들림
-    } else if(phase==='night'){
-      if(!isAlive && (!peerAlive || peerIsSpectator)) canHear = true; // 사망자↔(사망자+관전자)
-      else canHear = isMafiaRole && isAlive && peerIsMafia && peerAlive;
+    if(phase==='night'){
+      if(!isAlive && !peerAlive) canHear = true;          // 사망자↔사망자
+      else canHear = isMafiaRole && isAlive && peerIsMafia && peerAlive; // 마피아끼리
     } else {
+      // 낮: 생존자끼리 OR 사망자끼리만 (생존자↔사망자 차단)
       if(isAlive && peerAlive) canHear = true;
-      if(!isAlive && (!peerAlive || peerIsSpectator)) canHear = true; // 사망자↔(사망자+관전자)
+      if(!isAlive && !peerAlive) canHear = true;
     }
     audio.muted = !canHear;
   });
 
   // 로컬 마이크 enable/disable
   let canSpeak = false;
-  if(isSpectator){
-    canSpeak = false; // 관전자는 마이크 사용 불가
-  } else if(phase==='night'){
-    canSpeak = (!isAlive) || (isMafiaRole && isAlive);
+  if(phase==='night'){
+    canSpeak = (!isAlive) || (isMafiaRole && isAlive); // 사망자 or 마피아
   } else {
-    canSpeak = true;
+    canSpeak = true; // 생존자·사망자 모두 말할 수 있음 (듣는 쪽에서 mute 처리)
   }
   localStream.getAudioTracks().forEach(t=>{ t.enabled=canSpeak&&isMicOn; });
   const voiceLabel=document.getElementById('voiceLabel');
   const voiceDot=document.getElementById('voiceDot');
-  if(isSpectator){
-    if(voiceLabel) voiceLabel.textContent='👁 관전자 — 듣기 전용';
-    if(voiceDot) voiceDot.className='voice-dot'; // 말 못하므로 비활성 색
-  } else if(phase==='night'&&isMafiaRole&&isAlive){
+  if(phase==='night'&&isMafiaRole&&isAlive){
     if(voiceLabel) voiceLabel.textContent='마피아 음성채팅 활성';
     if(voiceDot) voiceDot.className='voice-dot mafia';
   } else if(phase==='night'&&!isAlive){
@@ -3258,7 +3164,6 @@ function updateVoiceChannelAccess(){
 
 
 window.toggleMic = async function(){
-  if(isSpectator){ toast('관전자는 음성채팅을 사용할 수 없습니다','error'); return; }
   if(!localStream){
     // 마이크 미연결 시 재시도
     await initLobbyMic();
